@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
 import { CommandCenter } from "@/components/command-center";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth.tsx"; // Updated import
 
 const queryClient = new QueryClient();
 

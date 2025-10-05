@@ -1,6 +1,6 @@
 import { TestSupabase } from "@/components/test-supabase";
 import { TestEdgeFunction } from "@/components/test-edge-function";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth.tsx"; // Updated import
 
 export default function Test() {
   const { user, signIn, signUp, signOut } = useAuth();

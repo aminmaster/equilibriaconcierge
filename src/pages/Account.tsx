@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth.tsx"; // Updated import
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,7 +37,9 @@ import {
   Palette, 
   Shield, 
   Bell, 
-  Trash2 
+  Trash2,
+  Chrome,
+  Github
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 

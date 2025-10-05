@@ -4,7 +4,7 @@ import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { ConciergeInterface } from "@/components/concierge-interface";
 import { ConversationLog } from "@/components/conversation-log";
 import { ConversationCanvas } from "@/components/conversation-canvas";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth.tsx"; // Updated import
 import { useAnonymousSession } from "@/hooks/use-anonymous-session";
 
 export default function Concierge() {

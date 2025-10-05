@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth.tsx"; // Updated import
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import {

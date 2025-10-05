@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/hooks/use-auth";
+import { AuthProvider } from "@/hooks/use-auth.tsx"; // Updated import
 import { Layout } from "@/components/layout";
 import Index from "./pages/Index";
 import Concierge from "./pages/Concierge";
