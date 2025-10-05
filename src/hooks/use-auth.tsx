@@ -36,11 +36,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
+
     // Check active session
     const checkSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
+        if (session && mounted) {
           // Get user profile
           const { data: profile, error } = await supabase
             .from('profiles')
@@ -48,19 +50,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             .eq('id', session.user.id)
             .single();
           
-          if (!error) {
+          if (!error && mounted) {
             setUser({
               id: session.user.id,
               email: session.user.email || '',
               name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'User',
               role: profile.role || 'user'
             });
+          } else if (mounted) {
+            // If profile doesn't exist, create a minimal user object
+            setUser({
+              id: session.user.id,
+              email: session.user.email || '',
+              name: session.user.email?.split('@')[0] || 'User',
+              role: 'user'
+            });
           }
         }
       } catch (error) {
         console.error("Error checking session:", error);
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
@@ -68,6 +80,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+      
       if (session) {
         // Get user profile
         supabase
@@ -76,6 +90,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           .eq('id', session.user.id)
           .single()
           .then(({ data: profile, error }) => {
+            if (!mounted) return;
+            
             if (!error) {
               setUser({
                 id: session.user.id,
@@ -92,20 +108,42 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 role: 'user'
               });
             }
+            setLoading(false);
           });
       } else {
         setUser(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    return await supabase.auth.signInWithPassword({ email, password });
+    const result = await supabase.auth.signInWithPassword({ email, password });
+    
+    // If successful, get user profile
+    if (result.data?.session) {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', result.data.session.user.id)
+        .single();
+      
+      if (!error) {
+        setUser({
+          id: result.data.session.user.id,
+          email: result.data.session.user.email || '',
+          name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'User',
+          role: profile.role || 'user'
+        });
+      }
+    }
+    
+    return result;
   };
 
   const signUp = async (email: string, password: string, name: string) => {

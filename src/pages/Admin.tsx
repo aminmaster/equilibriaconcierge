@@ -42,7 +42,7 @@ interface KnowledgeSource {
 }
 
 export default function Admin() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("knowledge");
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
@@ -60,20 +60,32 @@ export default function Admin() {
   // Model configuration states
   const [selectedModel, setSelectedModel] = useState("openai/gpt-4o");
 
+  // Debug: Log user state
+  useEffect(() => {
+    console.log("Admin page - User state:", user);
+    console.log("Admin page - Auth loading:", authLoading);
+  }, [user, authLoading]);
+
   // Check if user is admin
   useEffect(() => {
     const checkAdmin = async () => {
       if (user) {
+        console.log("Checking admin status for user:", user);
         // Check if user has admin role in profiles table
-        const { data: profile } = await supabase
+        const { data: profile, error } = await supabase
           .from('profiles')
           .select('role')
           .eq('id', user.id)
           .single();
         
+        console.log("Profile data:", profile, "Error:", error);
+        
         if (profile?.role === 'admin') {
+          console.log("User is admin");
           setIsAdmin(true);
           loadKnowledgeSources();
+        } else {
+          console.log("User is not admin");
         }
       }
     };
@@ -160,6 +172,15 @@ export default function Admin() {
     });
   };
 
+  // Show loading state while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen py-8 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   // If not admin, show access denied message
   if (!isAdmin && user) {
     return (
@@ -174,6 +195,9 @@ export default function Admin() {
           <CardContent>
             <p className="text-muted-foreground">
               Please contact your system administrator if you believe this is an error.
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              User role: {user.role}
             </p>
           </CardContent>
         </Card>
