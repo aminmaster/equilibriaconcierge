@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/use-auth.tsx"; // Updated import
+import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -86,21 +86,26 @@ export default function Account() {
     if (!user) return;
     
     setLoading(true);
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-    
-    if (!error && data) {
-      setProfile({
-        first_name: data.first_name || "",
-        last_name: data.last_name || "",
-        email: user.email || "",
-        bio: data.bio || "",
-      });
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      
+      if (!error && data) {
+        setProfile({
+          first_name: data.first_name || "",
+          last_name: data.last_name || "",
+          email: user.email || "",
+          bio: data.bio || "",
+        });
+      }
+    } catch (error) {
+      console.error("Error loading profile:", error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleSaveProfile = async () => {
@@ -177,11 +182,27 @@ export default function Account() {
         title: "Account deleted",
         description: "Your account has been permanently deleted.",
       });
-      signOut();
+      await signOut();
     } catch (error: any) {
       toast({
         title: "Deletion failed",
         description: error.message || "Failed to delete account.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast({
+        title: "Signed out",
+        description: "You have been successfully signed out.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Sign out failed",
+        description: error.message || "Failed to sign out.",
         variant: "destructive",
       });
     }
@@ -198,11 +219,16 @@ export default function Account() {
   return (
     <div className="min-h-screen py-8">
       <div className="max-w-4xl mx-auto px-4">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold">Account Settings</h1>
-          <p className="text-muted-foreground">
-            Manage your profile, preferences, and security settings
-          </p>
+        <div className="mb-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold">Account Settings</h1>
+            <p className="text-muted-foreground">
+              Manage your profile, preferences, and security settings
+            </p>
+          </div>
+          <Button variant="outline" onClick={handleSignOut}>
+            Sign Out
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">

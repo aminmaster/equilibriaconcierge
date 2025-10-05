@@ -38,25 +38,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     // Check active session
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        // Get user profile
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-        
-        if (!error) {
-          setUser({
-            id: session.user.id,
-            email: session.user.email || '',
-            name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'User',
-            role: profile.role || 'user'
-          });
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          // Get user profile
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (!error) {
+            setUser({
+              id: session.user.id,
+              email: session.user.email || '',
+              name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'User',
+              role: profile.role || 'user'
+            });
+          }
         }
+      } catch (error) {
+        console.error("Error checking session:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     checkSession();
@@ -77,6 +82,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 email: session.user.email || '',
                 name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'User',
                 role: profile.role || 'user'
+              });
+            } else {
+              // If profile doesn't exist, create a minimal user object
+              setUser({
+                id: session.user.id,
+                email: session.user.email || '',
+                name: session.user.email?.split('@')[0] || 'User',
+                role: 'user'
               });
             }
           });
@@ -115,8 +128,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      setUser(null);
+    } catch (error) {
+      console.error("Error signing out:", error);
+      // Even if there's an error, clear the user state
+      setUser(null);
+    }
   };
 
   return (
