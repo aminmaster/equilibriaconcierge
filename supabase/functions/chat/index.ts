@@ -45,10 +45,15 @@ serve(async (req) => {
     }
     
     // Create embedding for the query
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openaiApiKey) {
+      throw new Error('OpenAI API key not configured')
+    }
+    
     const openaiResponse = await fetch('https://api.openai.com/v1/embeddings', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+        'Authorization': `Bearer ${openaiApiKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -104,10 +109,15 @@ serve(async (req) => {
     // Call the appropriate API based on the provider
     let apiResponse;
     if (generationProvider === 'openrouter') {
+      const openrouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
+      if (!openrouterApiKey) {
+        throw new Error('OpenRouter API key not configured')
+      }
+      
       apiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${Deno.env.get('OPENROUTER_API_KEY')}`,
+          'Authorization': `Bearer ${openrouterApiKey}`,
           'HTTP-Referer': siteUrl,
           'X-Title': 'Conversational AI Platform',
           'Content-Type': 'application/json'
@@ -119,10 +129,14 @@ serve(async (req) => {
         })
       })
     } else if (generationProvider === 'openai') {
+      if (!openaiApiKey) {
+        throw new Error('OpenAI API key not configured')
+      }
+      
       apiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+          'Authorization': `Bearer ${openaiApiKey}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -132,11 +146,16 @@ serve(async (req) => {
         })
       })
     } else {
-      // Default to OpenRouter for other providers or if not specified
+      // Default to OpenRouter
+      const openrouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
+      if (!openrouterApiKey) {
+        throw new Error('OpenRouter API key not configured')
+      }
+      
       apiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${Deno.env.get('OPENROUTER_API_KEY')}`,
+          'Authorization': `Bearer ${openrouterApiKey}`,
           'HTTP-Referer': siteUrl,
           'X-Title': 'Conversational AI Platform',
           'Content-Type': 'application/json'

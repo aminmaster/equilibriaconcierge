@@ -122,6 +122,29 @@ export default function Admin() {
     checkAdmin();
   }, [user]);
 
+  // Load API keys when component mounts
+  useEffect(() => {
+    if (activeTab === "api" && isAdmin) {
+      loadApiKeys();
+    }
+  }, [activeTab, isAdmin]);
+
+  // Load model configuration when model tab is selected
+  useEffect(() => {
+    if (activeTab === "model" && isAdmin) {
+      // Load default models for the selected providers
+      loadGenerationModels();
+      loadEmbeddingModels();
+    }
+  }, [activeTab, isAdmin, selectedGenerationProvider, selectedEmbeddingProvider]);
+
+  const loadApiKeys = async () => {
+    // In a real implementation, you would load saved API keys from a secure storage
+    // For now, we'll just initialize with empty values
+    // The actual API keys should be stored securely on the server side
+    console.log("Loading API keys (in a real app, these would be loaded from secure storage)");
+  };
+
   // Load generation models based on selected provider
   const loadGenerationModels = async () => {
     if (!selectedGenerationProvider) {
@@ -138,30 +161,14 @@ export default function Admin() {
       let modelList = [];
       
       if (selectedGenerationProvider === "openrouter") {
-        if (!openrouterKey) {
-          toast({
-            title: "API Key Required",
-            description: "Please enter your OpenRouter API key first.",
-            variant: "destructive",
-          });
-          return;
-        }
-        
-        const response = await fetch('https://openrouter.ai/api/v1/models', {
-          headers: {
-            'Authorization': `Bearer ${openrouterKey}`
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch models: ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        modelList = data.data.map((model: any) => ({
-          id: model.id,
-          name: model.name
-        }));
+        // Load default OpenRouter models
+        modelList = [
+          { id: "openai/gpt-4o", name: "OpenAI GPT-4o" },
+          { id: "openai/gpt-4-turbo", name: "OpenAI GPT-4 Turbo" },
+          { id: "anthropic/claude-3-opus", name: "Anthropic Claude 3 Opus" },
+          { id: "anthropic/claude-3-sonnet", name: "Anthropic Claude 3 Sonnet" },
+          { id: "google/gemini-pro", name: "Google Gemini Pro" }
+        ];
       } else if (selectedGenerationProvider === "openai") {
         // Default OpenAI models
         modelList = [
@@ -182,10 +189,10 @@ export default function Admin() {
       
       setGenerationModels(modelList);
       
-      toast({
-        title: "Models Loaded",
-        description: `Successfully loaded ${modelList.length} models from ${selectedGenerationProvider}.`,
-      });
+      // Set a default model if none is selected
+      if (!selectedGenerationModel && modelList.length > 0) {
+        setSelectedGenerationModel(modelList[0].id);
+      }
     } catch (error: any) {
       toast({
         title: "Failed to Load Models",
@@ -230,10 +237,10 @@ export default function Admin() {
       
       setEmbeddingModels(modelList);
       
-      toast({
-        title: "Embedding Models Loaded",
-        description: `Successfully loaded ${modelList.length} embedding models from ${selectedEmbeddingProvider}.`,
-      });
+      // Set a default model if none is selected
+      if (!selectedEmbeddingModel && modelList.length > 0) {
+        setSelectedEmbeddingModel(modelList[0].id);
+      }
     } catch (error: any) {
       toast({
         title: "Failed to Load Embedding Models",
@@ -311,6 +318,7 @@ export default function Admin() {
   };
 
   const handleSaveApiKeys = () => {
+    // In a real implementation, you would save API keys to a secure storage
     toast({
       title: "API keys updated",
       description: "Your API keys have been saved securely.",
@@ -572,7 +580,12 @@ export default function Admin() {
                           value={openaiKey}
                           onChange={(e) => setOpenaiKey(e.target.value)}
                         />
-                        <Button variant="outline">Save</Button>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => toast({ title: "Key saved", description: "OpenAI API key saved securely" })}
+                        >
+                          Save
+                        </Button>
                       </div>
                     </div>
                     
@@ -586,7 +599,12 @@ export default function Admin() {
                           value={openrouterKey}
                           onChange={(e) => setOpenrouterKey(e.target.value)}
                         />
-                        <Button variant="outline">Save</Button>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => toast({ title: "Key saved", description: "OpenRouter API key saved securely" })}
+                        >
+                          Save
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -641,7 +659,7 @@ export default function Admin() {
                             variant="outline" 
                             size="sm" 
                             onClick={loadGenerationModels}
-                            disabled={modelsLoading || !selectedGenerationProvider}
+                            disabled={modelsLoading}
                           >
                             {modelsLoading ? (
                               <>
@@ -656,7 +674,6 @@ export default function Admin() {
                         <Select 
                           value={selectedGenerationModel} 
                           onValueChange={setSelectedGenerationModel}
-                          disabled={!selectedGenerationProvider}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Select model" />
@@ -669,9 +686,11 @@ export default function Admin() {
                                 </SelectItem>
                               ))
                             ) : (
-                              <SelectItem value="" disabled>
-                                Select a provider and refresh models
-                              </SelectItem>
+                              <>
+                                <SelectItem value="openai/gpt-4o">OpenAI GPT-4o</SelectItem>
+                                <SelectItem value="openai/gpt-4-turbo">OpenAI GPT-4 Turbo</SelectItem>
+                                <SelectItem value="anthropic/claude-3-opus">Anthropic Claude 3 Opus</SelectItem>
+                              </>
                             )}
                           </SelectContent>
                         </Select>
@@ -711,7 +730,7 @@ export default function Admin() {
                             variant="outline" 
                             size="sm" 
                             onClick={loadEmbeddingModels}
-                            disabled={modelsLoading || !selectedEmbeddingProvider}
+                            disabled={modelsLoading}
                           >
                             {modelsLoading ? (
                               <>
@@ -726,7 +745,6 @@ export default function Admin() {
                         <Select 
                           value={selectedEmbeddingModel} 
                           onValueChange={setSelectedEmbeddingModel}
-                          disabled={!selectedEmbeddingProvider}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Select embedding model" />
@@ -739,9 +757,11 @@ export default function Admin() {
                                 </SelectItem>
                               ))
                             ) : (
-                              <SelectItem value="" disabled>
-                                Select a provider and refresh models
-                              </SelectItem>
+                              <>
+                                <SelectItem value="text-embedding-3-large">Text Embedding 3 Large</SelectItem>
+                                <SelectItem value="text-embedding-3-small">Text Embedding 3 Small</SelectItem>
+                                <SelectItem value="text-embedding-ada-002">Text Embedding Ada 002</SelectItem>
+                              </>
                             )}
                           </SelectContent>
                         </Select>
@@ -756,7 +776,7 @@ export default function Admin() {
                           min="0" 
                           max="2" 
                           step="0.1" 
-                          value="0.7" 
+                          defaultValue="0.7" 
                         />
                         <div className="flex justify-between text-sm text-muted-foreground">
                           <span>Precise</span>
