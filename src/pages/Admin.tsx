@@ -133,6 +133,10 @@ export default function Admin() {
   // Load available models when providers change
   useEffect(() => {
     if (activeTab === "model" && isAdmin) {
+      console.log("Model tab active, loading models if providers selected");
+      console.log("Generation provider:", selectedGenerationProvider);
+      console.log("Embedding provider:", selectedEmbeddingProvider);
+      
       if (selectedGenerationProvider) {
         loadGenerationModels();
       }
@@ -140,7 +144,7 @@ export default function Admin() {
         loadEmbeddingModels();
       }
     }
-  }, [selectedGenerationProvider, selectedEmbeddingProvider, activeTab, isAdmin]);
+  }, [activeTab, isAdmin]);
 
   const loadApiKeys = async () => {
     setApiKeysLoading(true);
@@ -796,7 +800,7 @@ export default function Admin() {
                 <CardContent className="space-y-6">
                   <div className="space-y-4">
                     {/* Generation Model Configuration */}
-                    <div className="space-y-4 p-4 border rounded-lg">
+                    <div className="space-y-4 p-4 border rounded-lg bg-background">
                       <h3 className="font-medium text-lg">Text Generation</h3>
                       
                       <div className="space-y-2">
@@ -873,7 +877,7 @@ export default function Admin() {
                     </div>
                     
                     {/* Embedding Model Configuration */}
-                    <div className="space-y-4 p-4 border rounded-lg">
+                    <div className="space-y-4 p-4 border rounded-lg bg-background">
                       <h3 className="font-medium text-lg">Text Embedding</h3>
                       
                       <div className="space-y-2">
