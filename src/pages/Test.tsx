@@ -1,9 +1,35 @@
 import { TestSupabase } from "@/components/test-supabase";
 import { TestEdgeFunction } from "@/components/test-edge-function";
-import { useAuth } from "@/hooks/use-auth.tsx"; // Updated import
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
 
 export default function Test() {
   const { user, signIn, signUp, signOut } = useAuth();
+  
+  // ONLY FOR TESTING - Remove this useEffect after setting your admin role
+  useEffect(() => {
+    const makeAdmin = async () => {
+      if (user && user.email === "your-email@example.com") { // Replace with your email
+        try {
+          const { error } = await supabase
+            .from('profiles')
+            .update({ role: 'admin' })
+            .eq('id', user.id);
+          
+          if (error) {
+            console.error("Error making admin:", error);
+          } else {
+            console.log("Successfully made admin!");
+          }
+        } catch (error) {
+          console.error("Error:", error);
+        }
+      }
+    };
+    
+    makeAdmin();
+  }, [user]);
   
   return (
     <div className="min-h-screen py-8">
@@ -16,6 +42,7 @@ export default function Test() {
             {user ? (
               <div>
                 <p>Logged in as: {user.name} ({user.email})</p>
+                <p>Role: {user.role}</p>
                 <button 
                   onClick={() => signOut()}
                   className="mt-2 px-4 py-2 bg-red-500 text-white rounded"
