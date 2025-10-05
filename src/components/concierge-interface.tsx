@@ -11,7 +11,6 @@ import {
   Square
 } from "lucide-react";
 import { SoundSettingsPanel } from "@/components/sound-settings-panel";
-import { useConversations } from "@/hooks/use-conversations";
 import { useChat } from "@/hooks/use-chat";
 
 interface ConciergeInterfaceProps {
@@ -25,19 +24,11 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
   const [showSettings, setShowSettings] = useState(false);
   const [aiResponse, setAiResponse] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { currentConversation, createConversation } = useConversations();
   const { streamMessage, cancelStream, isLoading, error } = useChat();
-
-  // Create a new conversation on component mount if none exists
-  useEffect(() => {
-    if (!currentConversation) {
-      createConversation("New Conversation");
-    }
-  }, [currentConversation, createConversation]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim() || !currentConversation || isLoading) return;
+    if (!message.trim() || isLoading) return;
     
     try {
       await streamMessage(message, (chunk) => {
@@ -54,6 +45,14 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
     setIsListening(!isListening);
     // In a real app, this would start/stop speech recognition
   };
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 150)}px`;
+    }
+  }, [message]);
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-xl border-t">

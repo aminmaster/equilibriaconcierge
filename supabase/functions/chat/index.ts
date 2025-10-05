@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
-import { encode } from "https://deno.land/std@0.190.0/encoding/base64.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -92,7 +91,7 @@ serve(async (req) => {
     
     const allMessages = [systemMessage, ...conversationMessages, userMessage]
     
-    // Call OpenRouter API for response generation
+    // Call OpenRouter API for response generation with streaming
     const openrouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
