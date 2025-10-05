@@ -1,4 +1,4 @@
-const PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+const PROJECT_ID = "jmxemujffofqpqrxajlb";
 const SUPABASE_URL = `https://${PROJECT_ID}.supabase.co`;
 
 export const callEdgeFunction = async (

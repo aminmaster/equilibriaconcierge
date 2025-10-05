@@ -6,6 +6,7 @@ import Concierge from "./pages/Concierge";
 import Auth from "./pages/Auth";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
+import Test from "./pages/Test";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "@/components/protected-route";
 
@@ -17,6 +18,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/concierge" element={<Concierge />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/test" element={<Test />} />
           <Route 
             path="/account" 
             element={
