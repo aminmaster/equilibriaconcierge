@@ -9,12 +9,21 @@ interface User {
   role: string;
 }
 
-// Create context
-const AuthContext = createContext({
-  user: null as User | null,
+// Define the context value type
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  signIn: (email: string, password: string) => Promise<any>;
+  signUp: (email: string, password: string, name: string) => Promise<any>;
+  signOut: () => Promise<void>;
+}
+
+// Create context with initial value
+const AuthContext = createContext<AuthContextType>({
+  user: null,
   loading: true,
-  signIn: async (email: string, password: string) => {},
-  signUp: async (email: string, password: string, name: string) => {},
+  signIn: async () => {},
+  signUp: async () => {},
   signOut: async () => {},
 });
 
@@ -109,8 +118,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(null);
   };
 
+  const contextValue: AuthContextType = {
+    user,
+    loading,
+    signIn,
+    signUp,
+    signOut
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
