@@ -25,7 +25,7 @@ serve(async (req) => {
       })
     }
     
-    const { message, conversationId } = await req.json()
+    const { message, conversationId, embeddingModel = 'text-embedding-3-large' } = await req.json()
     
     // Get conversation history
     const { data: messages, error: messagesError } = await supabaseClient
@@ -47,7 +47,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         input: message,
-        model: 'text-embedding-3-large'
+        model: embeddingModel
       })
     })
     
@@ -91,12 +91,16 @@ serve(async (req) => {
     
     const allMessages = [systemMessage, ...conversationMessages, userMessage]
     
+    // Get the referer from the request or use a default
+    const referer = req.headers.get('Referer') || 'http://localhost:3000'
+    const siteUrl = new URL(referer).origin
+    
     // Call OpenRouter API for response generation with streaming
     const openrouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${Deno.env.get('OPENROUTER_API_KEY')}`,
-        'HTTP-Referer': Deno.env.get('YOUR_SITE_URL') || 'http://localhost:3000',
+        'HTTP-Referer': siteUrl,
         'X-Title': 'Conversational AI Platform',
         'Content-Type': 'application/json'
       },

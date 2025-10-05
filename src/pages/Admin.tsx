@@ -27,7 +27,8 @@ import {
   FileText,
   Globe,
   FileUp,
-  RefreshCw
+  RefreshCw,
+  Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,6 +40,11 @@ interface KnowledgeSource {
   url: string;
   status: string;
   created_at: string;
+}
+
+interface OpenRouterModel {
+  id: string;
+  name: string;
 }
 
 export default function Admin() {
@@ -59,6 +65,16 @@ export default function Admin() {
   
   // Model configuration states
   const [selectedModel, setSelectedModel] = useState("openai/gpt-4o");
+  const [models, setModels] = useState<OpenRouterModel[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  
+  // Embedding models
+  const [selectedEmbeddingModel, setSelectedEmbeddingModel] = useState("text-embedding-3-large");
+  const embeddingModels = [
+    { id: "text-embedding-3-large", name: "Text Embedding 3 Large" },
+    { id: "text-embedding-3-small", name: "Text Embedding 3 Small" },
+    { id: "text-embedding-ada-002", name: "Text Embedding Ada 002" }
+  ];
 
   // Debug: Log user state
   useEffect(() => {
@@ -92,6 +108,52 @@ export default function Admin() {
     
     checkAdmin();
   }, [user]);
+
+  // Load OpenRouter models
+  const loadOpenRouterModels = async () => {
+    if (!openrouterKey) {
+      toast({
+        title: "API Key Required",
+        description: "Please enter your OpenRouter API key first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setModelsLoading(true);
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/models', {
+        headers: {
+          'Authorization': `Bearer ${openrouterKey}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch models: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      const modelList = data.data.map((model: any) => ({
+        id: model.id,
+        name: model.name
+      }));
+      
+      setModels(modelList);
+      
+      toast({
+        title: "Models Loaded",
+        description: `Successfully loaded ${modelList.length} models from OpenRouter.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to Load Models",
+        description: error.message || "Could not fetch models from OpenRouter.",
+        variant: "destructive",
+      });
+    } finally {
+      setModelsLoading(false);
+    }
+  };
 
   // Load knowledge sources
   const loadKnowledgeSources = async () => {
@@ -168,7 +230,7 @@ export default function Admin() {
   const handleSaveModelConfig = () => {
     toast({
       title: "Model configuration updated",
-      description: `Now using ${selectedModel} for generating responses.`,
+      description: `Now using ${selectedModel} for generating responses and ${selectedEmbeddingModel} for embeddings.`,
     });
   };
 
@@ -451,13 +513,30 @@ export default function Admin() {
                 <CardHeader>
                   <CardTitle>Model Configuration</CardTitle>
                   <CardDescription>
-                    Select the AI model for generating responses
+                    Select the AI models for generating responses and creating embeddings
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label>Text Generation Model</Label>
+                      <div className="flex justify-between items-center">
+                        <Label>Text Generation Model</Label>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={loadOpenRouterModels}
+                          disabled={modelsLoading || !openrouterKey}
+                        >
+                          {modelsLoading ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Loading...
+                            </>
+                          ) : (
+                            "Refresh Models"
+                          )}
+                        </Button>
+                      </div>
                       <Select 
                         value={selectedModel} 
                         onValueChange={setSelectedModel}
@@ -466,11 +545,40 @@ export default function Admin() {
                           <SelectValue placeholder="Select model" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="openai/gpt-4o">OpenAI GPT-4o</SelectItem>
-                          <SelectItem value="openai/gpt-4-turbo">OpenAI GPT-4 Turbo</SelectItem>
-                          <SelectItem value="anthropic/claude-3-opus">Anthropic Claude 3 Opus</SelectItem>
-                          <SelectItem value="anthropic/claude-3-sonnet">Anthropic Claude 3 Sonnet</SelectItem>
-                          <SelectItem value="google/gemini-pro">Google Gemini Pro</SelectItem>
+                          {models.length > 0 ? (
+                            models.map((model) => (
+                              <SelectItem key={model.id} value={model.id}>
+                                {model.name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <>
+                              <SelectItem value="openai/gpt-4o">OpenAI GPT-4o</SelectItem>
+                              <SelectItem value="openai/gpt-4-turbo">OpenAI GPT-4 Turbo</SelectItem>
+                              <SelectItem value="anthropic/claude-3-opus">Anthropic Claude 3 Opus</SelectItem>
+                              <SelectItem value="anthropic/claude-3-sonnet">Anthropic Claude 3 Sonnet</SelectItem>
+                              <SelectItem value="google/gemini-pro">Google Gemini Pro</SelectItem>
+                            </>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>Text Embedding Model</Label>
+                      <Select 
+                        value={selectedEmbeddingModel} 
+                        onValueChange={setSelectedEmbeddingModel}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select embedding model" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {embeddingModels.map((model) => (
+                            <SelectItem key={model.id} value={model.id}>
+                              {model.name}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>

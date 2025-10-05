@@ -45,7 +45,8 @@ export const useChat = () => {
         },
         body: JSON.stringify({
           message: content,
-          conversationId: conversationId
+          conversationId: conversationId,
+          embeddingModel: 'text-embedding-3-large' // This could be made configurable
         })
       });
       
