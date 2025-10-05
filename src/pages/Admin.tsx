@@ -47,6 +47,11 @@ interface OpenRouterModel {
   name: string;
 }
 
+interface OpenAIModel {
+  id: string;
+  name: string;
+}
+
 export default function Admin() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
@@ -64,16 +69,24 @@ export default function Admin() {
   const [openrouterKey, setOpenrouterKey] = useState("");
   
   // Model configuration states
-  const [selectedModel, setSelectedModel] = useState("openai/gpt-4o");
-  const [models, setModels] = useState<OpenRouterModel[]>([]);
+  const [selectedGenerationProvider, setSelectedGenerationProvider] = useState("openrouter");
+  const [selectedEmbeddingProvider, setSelectedEmbeddingProvider] = useState("openai");
+  const [selectedGenerationModel, setSelectedGenerationModel] = useState("openai/gpt-4o");
+  const [selectedEmbeddingModel, setSelectedEmbeddingModel] = useState("text-embedding-3-large");
+  const [generationModels, setGenerationModels] = useState<OpenRouterModel[]>([]);
+  const [embeddingModels, setEmbeddingModels] = useState<OpenAIModel[]>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
   
-  // Embedding models
-  const [selectedEmbeddingModel, setSelectedEmbeddingModel] = useState("text-embedding-3-large");
-  const embeddingModels = [
-    { id: "text-embedding-3-large", name: "Text Embedding 3 Large" },
-    { id: "text-embedding-3-small", name: "Text Embedding 3 Small" },
-    { id: "text-embedding-ada-002", name: "Text Embedding Ada 002" }
+  // Available providers
+  const generationProviders = [
+    { id: "openrouter", name: "OpenRouter" },
+    { id: "openai", name: "OpenAI" },
+    { id: "anthropic", name: "Anthropic" }
+  ];
+  
+  const embeddingProviders = [
+    { id: "openai", name: "OpenAI" },
+    { id: "cohere", name: "Cohere" }
   ];
 
   // Debug: Log user state
@@ -109,12 +122,12 @@ export default function Admin() {
     checkAdmin();
   }, [user]);
 
-  // Load OpenRouter models
-  const loadOpenRouterModels = async () => {
-    if (!openrouterKey) {
+  // Load generation models based on selected provider
+  const loadGenerationModels = async () => {
+    if (!selectedGenerationProvider) {
       toast({
-        title: "API Key Required",
-        description: "Please enter your OpenRouter API key first.",
+        title: "Provider Required",
+        description: "Please select a generation provider first.",
         variant: "destructive",
       });
       return;
@@ -122,32 +135,109 @@ export default function Admin() {
     
     setModelsLoading(true);
     try {
-      const response = await fetch('https://openrouter.ai/api/v1/models', {
-        headers: {
-          'Authorization': `Bearer ${openrouterKey}`
-        }
-      });
+      let modelList = [];
       
-      if (!response.ok) {
-        throw new Error(`Failed to fetch models: ${response.statusText}`);
+      if (selectedGenerationProvider === "openrouter") {
+        if (!openrouterKey) {
+          toast({
+            title: "API Key Required",
+            description: "Please enter your OpenRouter API key first.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        const response = await fetch('https://openrouter.ai/api/v1/models', {
+          headers: {
+            'Authorization': `Bearer ${openrouterKey}`
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch models: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        modelList = data.data.map((model: any) => ({
+          id: model.id,
+          name: model.name
+        }));
+      } else if (selectedGenerationProvider === "openai") {
+        // Default OpenAI models
+        modelList = [
+          { id: "gpt-4o", name: "GPT-4o" },
+          { id: "gpt-4-turbo", name: "GPT-4 Turbo" },
+          { id: "gpt-4", name: "GPT-4" },
+          { id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo" }
+        ];
+      } else if (selectedGenerationProvider === "anthropic") {
+        // Default Anthropic models
+        modelList = [
+          { id: "claude-3-5-sonnet-20240620", name: "Claude 3.5 Sonnet" },
+          { id: "claude-3-opus-20240229", name: "Claude 3 Opus" },
+          { id: "claude-3-sonnet-20240229", name: "Claude 3 Sonnet" },
+          { id: "claude-3-haiku-20240307", name: "Claude 3 Haiku" }
+        ];
       }
       
-      const data = await response.json();
-      const modelList = data.data.map((model: any) => ({
-        id: model.id,
-        name: model.name
-      }));
-      
-      setModels(modelList);
+      setGenerationModels(modelList);
       
       toast({
         title: "Models Loaded",
-        description: `Successfully loaded ${modelList.length} models from OpenRouter.`,
+        description: `Successfully loaded ${modelList.length} models from ${selectedGenerationProvider}.`,
       });
     } catch (error: any) {
       toast({
         title: "Failed to Load Models",
-        description: error.message || "Could not fetch models from OpenRouter.",
+        description: error.message || `Could not fetch models from ${selectedGenerationProvider}.`,
+        variant: "destructive",
+      });
+    } finally {
+      setModelsLoading(false);
+    }
+  };
+
+  // Load embedding models based on selected provider
+  const loadEmbeddingModels = async () => {
+    if (!selectedEmbeddingProvider) {
+      toast({
+        title: "Provider Required",
+        description: "Please select an embedding provider first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setModelsLoading(true);
+    try {
+      let modelList = [];
+      
+      if (selectedEmbeddingProvider === "openai") {
+        // Default OpenAI embedding models
+        modelList = [
+          { id: "text-embedding-3-large", name: "Text Embedding 3 Large" },
+          { id: "text-embedding-3-small", name: "Text Embedding 3 Small" },
+          { id: "text-embedding-ada-002", name: "Text Embedding Ada 002" }
+        ];
+      } else if (selectedEmbeddingProvider === "cohere") {
+        // Default Cohere embedding models
+        modelList = [
+          { id: "embed-english-v3.0", name: "Embed English v3.0" },
+          { id: "embed-multilingual-v3.0", name: "Embed Multilingual v3.0" },
+          { id: "embed-english-light-v3.0", name: "Embed English Light v3.0" }
+        ];
+      }
+      
+      setEmbeddingModels(modelList);
+      
+      toast({
+        title: "Embedding Models Loaded",
+        description: `Successfully loaded ${modelList.length} embedding models from ${selectedEmbeddingProvider}.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to Load Embedding Models",
+        description: error.message || `Could not fetch embedding models from ${selectedEmbeddingProvider}.`,
         variant: "destructive",
       });
     } finally {
@@ -230,7 +320,7 @@ export default function Admin() {
   const handleSaveModelConfig = () => {
     toast({
       title: "Model configuration updated",
-      description: `Now using ${selectedModel} for generating responses and ${selectedEmbeddingModel} for embeddings.`,
+      description: `Generation: ${selectedGenerationProvider}/${selectedGenerationModel}, Embedding: ${selectedEmbeddingProvider}/${selectedEmbeddingModel}`,
     });
   };
 
@@ -513,74 +603,149 @@ export default function Admin() {
                 <CardHeader>
                   <CardTitle>Model Configuration</CardTitle>
                   <CardDescription>
-                    Select the AI models for generating responses and creating embeddings
+                    Select the AI models and providers for generating responses and creating embeddings
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <Label>Text Generation Model</Label>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={loadOpenRouterModels}
-                          disabled={modelsLoading || !openrouterKey}
+                    {/* Generation Model Configuration */}
+                    <div className="space-y-4 p-4 border rounded-lg">
+                      <h3 className="font-medium text-lg">Text Generation</h3>
+                      
+                      <div className="space-y-2">
+                        <Label>Provider</Label>
+                        <Select 
+                          value={selectedGenerationProvider} 
+                          onValueChange={(value) => {
+                            setSelectedGenerationProvider(value);
+                            setSelectedGenerationModel("");
+                          }}
                         >
-                          {modelsLoading ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Loading...
-                            </>
-                          ) : (
-                            "Refresh Models"
-                          )}
-                        </Button>
-                      </div>
-                      <Select 
-                        value={selectedModel} 
-                        onValueChange={setSelectedModel}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select model" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {models.length > 0 ? (
-                            models.map((model) => (
-                              <SelectItem key={model.id} value={model.id}>
-                                {model.name}
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select provider" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {generationProviders.map((provider) => (
+                              <SelectItem key={provider.id} value={provider.id}>
+                                {provider.name}
                               </SelectItem>
-                            ))
-                          ) : (
-                            <>
-                              <SelectItem value="openai/gpt-4o">OpenAI GPT-4o</SelectItem>
-                              <SelectItem value="openai/gpt-4-turbo">OpenAI GPT-4 Turbo</SelectItem>
-                              <SelectItem value="anthropic/claude-3-opus">Anthropic Claude 3 Opus</SelectItem>
-                              <SelectItem value="anthropic/claude-3-sonnet">Anthropic Claude 3 Sonnet</SelectItem>
-                              <SelectItem value="google/gemini-pro">Google Gemini Pro</SelectItem>
-                            </>
-                          )}
-                        </SelectContent>
-                      </Select>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <Label>Model</Label>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={loadGenerationModels}
+                            disabled={modelsLoading || !selectedGenerationProvider}
+                          >
+                            {modelsLoading ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Loading...
+                              </>
+                            ) : (
+                              "Refresh Models"
+                            )}
+                          </Button>
+                        </div>
+                        <Select 
+                          value={selectedGenerationModel} 
+                          onValueChange={setSelectedGenerationModel}
+                          disabled={!selectedGenerationProvider}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select model" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {generationModels.length > 0 ? (
+                              generationModels.map((model) => (
+                                <SelectItem key={model.id} value={model.id}>
+                                  {model.name}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="" disabled>
+                                Select a provider and refresh models
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                     
-                    <div className="space-y-2">
-                      <Label>Text Embedding Model</Label>
-                      <Select 
-                        value={selectedEmbeddingModel} 
-                        onValueChange={setSelectedEmbeddingModel}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select embedding model" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {embeddingModels.map((model) => (
-                            <SelectItem key={model.id} value={model.id}>
-                              {model.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    {/* Embedding Model Configuration */}
+                    <div className="space-y-4 p-4 border rounded-lg">
+                      <h3 className="font-medium text-lg">Text Embedding</h3>
+                      
+                      <div className="space-y-2">
+                        <Label>Provider</Label>
+                        <Select 
+                          value={selectedEmbeddingProvider} 
+                          onValueChange={(value) => {
+                            setSelectedEmbeddingProvider(value);
+                            setSelectedEmbeddingModel("");
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select provider" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {embeddingProviders.map((provider) => (
+                              <SelectItem key={provider.id} value={provider.id}>
+                                {provider.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <Label>Model</Label>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={loadEmbeddingModels}
+                            disabled={modelsLoading || !selectedEmbeddingProvider}
+                          >
+                            {modelsLoading ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Loading...
+                              </>
+                            ) : (
+                              "Refresh Models"
+                            )}
+                          </Button>
+                        </div>
+                        <Select 
+                          value={selectedEmbeddingModel} 
+                          onValueChange={setSelectedEmbeddingModel}
+                          disabled={!selectedEmbeddingProvider}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select embedding model" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {embeddingModels.length > 0 ? (
+                              embeddingModels.map((model) => (
+                                <SelectItem key={model.id} value={model.id}>
+                                  {model.name}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="" disabled>
+                                Select a provider and refresh models
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                     
                     <div className="space-y-4 pt-4">

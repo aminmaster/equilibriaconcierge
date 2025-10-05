@@ -46,7 +46,9 @@ export const useChat = () => {
         body: JSON.stringify({
           message: content,
           conversationId: conversationId,
-          embeddingModel: 'text-embedding-3-large' // This could be made configurable
+          embeddingModel: 'text-embedding-3-large', // This could be made configurable
+          generationProvider: 'openrouter', // This could be made configurable
+          generationModel: 'openai/gpt-4o' // This could be made configurable
         })
       });
       

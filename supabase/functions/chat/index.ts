@@ -25,7 +25,13 @@ serve(async (req) => {
       })
     }
     
-    const { message, conversationId, embeddingModel = 'text-embedding-3-large' } = await req.json()
+    const { 
+      message, 
+      conversationId, 
+      embeddingModel = 'text-embedding-3-large',
+      generationProvider = 'openrouter',
+      generationModel = 'openai/gpt-4o'
+    } = await req.json()
     
     // Get conversation history
     const { data: messages, error: messagesError } = await supabaseClient
@@ -95,28 +101,60 @@ serve(async (req) => {
     const referer = req.headers.get('Referer') || 'http://localhost:3000'
     const siteUrl = new URL(referer).origin
     
-    // Call OpenRouter API for response generation with streaming
-    const openrouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENROUTER_API_KEY')}`,
-        'HTTP-Referer': siteUrl,
-        'X-Title': 'Conversational AI Platform',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'openai/gpt-4o',
-        messages: allMessages,
-        stream: true
+    // Call the appropriate API based on the provider
+    let apiResponse;
+    if (generationProvider === 'openrouter') {
+      apiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${Deno.env.get('OPENROUTER_API_KEY')}`,
+          'HTTP-Referer': siteUrl,
+          'X-Title': 'Conversational AI Platform',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: generationModel,
+          messages: allMessages,
+          stream: true
+        })
       })
-    })
+    } else if (generationProvider === 'openai') {
+      apiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: generationModel,
+          messages: allMessages,
+          stream: true
+        })
+      })
+    } else {
+      // Default to OpenRouter for other providers or if not specified
+      apiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${Deno.env.get('OPENROUTER_API_KEY')}`,
+          'HTTP-Referer': siteUrl,
+          'X-Title': 'Conversational AI Platform',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: generationModel,
+          messages: allMessages,
+          stream: true
+        })
+      })
+    }
     
-    if (!openrouterResponse.ok) {
-      throw new Error(`OpenRouter API error: ${openrouterResponse.statusText}`)
+    if (!apiResponse.ok) {
+      throw new Error(`API error: ${apiResponse.statusText}`)
     }
     
     // Stream the response back to the client
-    return new Response(openrouterResponse.body, {
+    return new Response(apiResponse.body, {
       headers: { 
         ...corsHeaders, 
         'Content-Type': 'text/event-stream',
