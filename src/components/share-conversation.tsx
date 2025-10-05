@@ -1,0 +1,118 @@
+"use client";
+
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { 
+  Copy, 
+  Share2, 
+  Download,
+  Link as LinkIcon
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+
+interface ShareConversationProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  conversationId: string;
+}
+
+export function ShareConversation({ open, onOpenChange, conversationId }: ShareConversationProps) {
+  const { toast } = useToast();
+  const [copied, setCopied] = useState(false);
+  
+  // In a real implementation, this would be a proper shareable URL
+  const shareUrl = `${window.location.origin}/share/${conversationId}`;
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    toast({
+      title: "Copied to clipboard",
+      description: "The conversation link has been copied to your clipboard.",
+    });
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const exportConversation = (format: "markdown" | "json") => {
+    // In a real implementation, this would export the actual conversation
+    toast({
+      title: "Export started",
+      description: `Your conversation is being exported as ${format.toUpperCase()}.`,
+    });
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Share Conversation</DialogTitle>
+          <DialogDescription>
+            Share this conversation with others or export it in different formats.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label>Share Link</Label>
+            <div className="flex gap-2">
+              <Input
+                value={shareUrl}
+                readOnly
+                className="flex-1"
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={copyToClipboard}
+              >
+                {copied ? (
+                  <Copy className="h-4 w-4 text-green-500" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </div>
+          
+          <div className="pt-4">
+            <Label>Export Options</Label>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => exportConversation("markdown")}
+              >
+                <Download className="h-4 w-4" />
+                Markdown
+              </Button>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => exportConversation("json")}
+              >
+                <Download className="h-4 w-4" />
+                JSON
+              </Button>
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex justify-end">
+          <Button onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

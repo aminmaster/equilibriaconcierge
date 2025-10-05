@@ -22,6 +22,7 @@ import {
   Linkedin, 
   Twitter 
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Auth() {
   const [email, setEmail] = useState("");
@@ -43,10 +44,10 @@ export default function Auth() {
       });
       
       navigate("/account");
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Sign in failed",
-        description: "Invalid email or password. Please try again.",
+        description: error.message || "Invalid email or password. Please try again.",
         variant: "destructive",
       });
     }
@@ -60,25 +61,33 @@ export default function Auth() {
       
       toast({
         title: "Account created!",
-        description: "Welcome to our platform.",
+        description: "Welcome to our platform. Please check your email to confirm your account.",
       });
       
       navigate("/account");
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Sign up failed",
-        description: "There was an error creating your account.",
+        description: error.message || "There was an error creating your account.",
         variant: "destructive",
       });
     }
   };
 
-  const handleSocialLogin = (provider: string) => {
-    toast({
-      title: "Social login",
-      description: `Signing in with ${provider}...`,
-    });
-    // In a real app, this would redirect to the provider's OAuth flow
+  const handleSocialLogin = async (provider: string) => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: provider.toLowerCase() as any,
+      });
+      
+      if (error) throw error;
+    } catch (error: any) {
+      toast({
+        title: "Social login failed",
+        description: error.message || `Failed to sign in with ${provider}`,
+        variant: "destructive",
+      });
+    }
   };
 
   return (

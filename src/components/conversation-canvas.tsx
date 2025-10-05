@@ -8,16 +8,26 @@ import {
   Maximize2, 
   Minimize2 
 } from "lucide-react";
+import { ShareConversation } from "@/components/share-conversation";
+import { useConversations } from "@/hooks/use-conversations";
 
 export function ConversationCanvas() {
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const { currentConversation } = useConversations();
 
   return (
     <div className="h-full flex flex-col">
       <div className="p-4 border-b flex justify-between items-center">
         <h2 className="text-xl font-semibold">Knowledge Graph</h2>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" className="gap-2">
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="gap-2"
+            onClick={() => setShowShareModal(true)}
+            disabled={!currentConversation}
+          >
             <Share className="h-4 w-4" />
             Share
           </Button>
@@ -58,6 +68,14 @@ export function ConversationCanvas() {
           </p>
         </div>
       </div>
+      
+      {currentConversation && (
+        <ShareConversation 
+          open={showShareModal} 
+          onOpenChange={setShowShareModal} 
+          conversationId={currentConversation.id}
+        />
+      )}
     </div>
   );
 }

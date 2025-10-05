@@ -4,9 +4,13 @@ import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { ConciergeInterface } from "@/components/concierge-interface";
 import { ConversationLog } from "@/components/conversation-log";
 import { ConversationCanvas } from "@/components/conversation-canvas";
+import { useAuth } from "@/hooks/use-auth";
+import { useAnonymousSession } from "@/hooks/use-anonymous-session";
 
 export default function Concierge() {
   const location = useLocation();
+  const { user } = useAuth();
+  const { sessionId, isAnonymous } = useAnonymousSession();
   const [inputMode, setInputMode] = useState<"text" | "voice">("text");
   const [defaultLayout, setDefaultLayout] = useState<number[]>([70, 30]);
 
@@ -20,6 +24,15 @@ export default function Concierge() {
       setInputMode("text");
     }
   }, [location.search]);
+
+  // Log session information
+  useEffect(() => {
+    console.log("User session:", { 
+      userId: user?.id, 
+      sessionId, 
+      isAnonymous 
+    });
+  }, [user, sessionId, isAnonymous]);
 
   return (
     <div className="h-full flex flex-col">

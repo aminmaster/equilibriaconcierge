@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -39,17 +39,20 @@ import {
   Bell, 
   Trash2 
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Account() {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
+  const [loading, setLoading] = useState(true);
 
   // Form states
   const [profile, setProfile] = useState({
-    name: user?.name || "",
-    email: user?.email || "",
+    first_name: "",
+    last_name: "",
+    email: "",
     bio: "",
   });
   
@@ -70,11 +73,61 @@ export default function Account() {
     confirmPassword: "",
   });
 
-  const handleSaveProfile = () => {
-    toast({
-      title: "Profile updated",
-      description: "Your profile information has been saved.",
-    });
+  // Load user profile
+  useEffect(() => {
+    if (user) {
+      loadProfile();
+    }
+  }, [user]);
+
+  const loadProfile = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+    
+    if (!error && data) {
+      setProfile({
+        first_name: data.first_name || "",
+        last_name: data.last_name || "",
+        email: user.email || "",
+        bio: data.bio || "",
+      });
+    }
+    setLoading(false);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!user) return;
+    
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          first_name: profile.first_name,
+          last_name: profile.last_name,
+          bio: profile.bio,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Profile updated",
+        description: "Your profile information has been saved.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Update failed",
+        description: error.message || "Failed to update profile.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSavePreferences = () => {
@@ -113,13 +166,32 @@ export default function Account() {
     });
   };
 
-  const handleDeleteAccount = () => {
-    toast({
-      title: "Account deleted",
-      description: "Your account has been permanently deleted.",
-    });
-    signOut();
+  const handleDeleteAccount = async () => {
+    try {
+      const { error } = await supabase.auth.admin.deleteUser(user!.id);
+      if (error) throw error;
+      
+      toast({
+        title: "Account deleted",
+        description: "Your account has been permanently deleted.",
+      });
+      signOut();
+    } catch (error: any) {
+      toast({
+        title: "Deletion failed",
+        description: error.message || "Failed to delete account.",
+        variant: "destructive",
+      });
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen py-8 flex items-center justify-center">
+        <div className="h-8 w-8 rounded-full border-2 border-current border-t-transparent animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen py-8">
@@ -197,7 +269,7 @@ export default function Account() {
                   <div className="flex items-center gap-4">
                     <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center">
                       <span className="text-xl font-bold text-primary-foreground">
-                        {user?.name?.charAt(0) || "U"}
+                        {profile.first_name?.charAt(0) || user?.name?.charAt(0) || "U"}
                       </span>
                     </div>
                     <div>
@@ -209,13 +281,24 @@ export default function Account() {
                   </div>
                   
                   <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Full Name</Label>
-                      <Input
-                        id="name"
-                        value={profile.name}
-                        onChange={(e) => setProfile({...profile, name: e.target.value})}
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="first-name">First Name</Label>
+                        <Input
+                          id="first-name"
+                          value={profile.first_name}
+                          onChange={(e) => setProfile({...profile, first_name: e.target.value})}
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="last-name">Last Name</Label>
+                        <Input
+                          id="last-name"
+                          value={profile.last_name}
+                          onChange={(e) => setProfile({...profile, last_name: e.target.value})}
+                        />
+                      </div>
                     </div>
                     
                     <div className="space-y-2">
@@ -225,6 +308,7 @@ export default function Account() {
                         type="email"
                         value={profile.email}
                         onChange={(e) => setProfile({...profile, email: e.target.value})}
+                        disabled
                       />
                     </div>
                     

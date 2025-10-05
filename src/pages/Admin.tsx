@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -26,13 +25,26 @@ import {
   Settings,
   FileText,
   Globe,
-  FileUp
+  FileUp,
+  RefreshCw
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+
+interface KnowledgeSource {
+  id: string;
+  name: string;
+  type: string;
+  url: string;
+  status: string;
+  created_at: string;
+}
 
 export default function Admin() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("knowledge");
+  const [sources, setSources] = useState<KnowledgeSource[]>([]);
+  const [loading, setLoading] = useState(true);
   
   // Knowledge base states
   const [file, setFile] = useState<File | null>(null);
@@ -45,13 +57,31 @@ export default function Admin() {
   // Model configuration states
   const [selectedModel, setSelectedModel] = useState("openai/gpt-4o");
 
+  // Load knowledge sources
+  useEffect(() => {
+    loadKnowledgeSources();
+  }, []);
+
+  const loadKnowledgeSources = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('knowledge_sources')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (!error && data) {
+      setSources(data);
+    }
+    setLoading(false);
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
     }
   };
 
-  const handleIngestKnowledge = () => {
+  const handleIngestKnowledge = async () => {
     if (!file && !url) {
       toast({
         title: "Missing input",
@@ -61,14 +91,39 @@ export default function Admin() {
       return;
     }
     
-    toast({
-      title: "Ingestion started",
-      description: "Your knowledge base is being processed. This may take a few minutes.",
-    });
-    
-    // Reset form
-    setFile(null);
-    setUrl("");
+    try {
+      // Create knowledge source record
+      const { data, error } = await supabase
+        .from('knowledge_sources')
+        .insert([{
+          name: file ? file.name : url,
+          type: file ? 'file' : 'url',
+          url: url || null
+        }])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Ingestion started",
+        description: "Your knowledge base is being processed. This may take a few minutes.",
+      });
+      
+      // In a real implementation, we would call the ingest edge function here
+      // For now, we'll just add it to the list
+      setSources([data, ...sources]);
+      
+      // Reset form
+      setFile(null);
+      setUrl("");
+    } catch (error: any) {
+      toast({
+        title: "Ingestion failed",
+        description: error.message || "Failed to start knowledge ingestion process.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSaveApiKeys = () => {
@@ -199,39 +254,61 @@ export default function Admin() {
                 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Knowledge Sources</CardTitle>
-                    <CardDescription>
-                      Manage existing knowledge sources
-                    </CardDescription>
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <CardTitle>Knowledge Sources</CardTitle>
+                        <CardDescription>
+                          Manage existing knowledge sources
+                        </CardDescription>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={loadKnowledgeSources}>
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Refresh
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center gap-4">
-                          <FileText className="h-8 w-8 text-muted-foreground" />
-                          <div>
-                            <h3 className="font-medium">Company Handbook</h3>
-                            <p className="text-sm text-muted-foreground">
-                              Last updated: 2023-10-15
-                            </p>
-                          </div>
-                        </div>
-                        <Button variant="outline">View</Button>
+                    {loading ? (
+                      <div className="space-y-4">
+                        {[...Array(3)].map((_, i) => (
+                          <div key={i} className="h-16 bg-gray-200 rounded animate-pulse"></div>
+                        ))}
                       </div>
-                      
-                      <div className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center gap-4">
-                          <FileText className="h-8 w-8 text-muted-foreground" />
-                          <div>
-                            <h3 className="font-medium">Product Documentation</h3>
-                            <p className="text-sm text-muted-foreground">
-                              Last updated: 2023-11-02
-                            </p>
-                          </div>
-                        </div>
-                        <Button variant="outline">View</Button>
+                    ) : sources.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        No knowledge sources found. Upload a document to get started.
                       </div>
-                    </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {sources.map((source) => (
+                          <div key={source.id} className="flex items-center justify-between p-4 border rounded-lg">
+                            <div className="flex items-center gap-4">
+                              <FileText className="h-8 w-8 text-muted-foreground" />
+                              <div>
+                                <h3 className="font-medium">{source.name}</h3>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm text-muted-foreground">
+                                    {new Date(source.created_at).toLocaleDateString()}
+                                  </p>
+                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                    source.status === 'completed' 
+                                      ? 'bg-green-100 text-green-800' 
+                                      : source.status === 'processing' 
+                                        ? 'bg-yellow-100 text-yellow-800' 
+                                        : source.status === 'failed' 
+                                          ? 'bg-red-100 text-red-800' 
+                                          : 'bg-blue-100 text-blue-800'
+                                  }`}>
+                                    {source.status.charAt(0).toUpperCase() + source.status.slice(1)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <Button variant="outline">View</Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>

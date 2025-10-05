@@ -1,15 +1,18 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { 
   Mic, 
   Keyboard, 
   Settings, 
-  Send 
+  Send,
+  Square
 } from "lucide-react";
 import { SoundSettingsPanel } from "@/components/sound-settings-panel";
+import { useConversations } from "@/hooks/use-conversations";
+import { useChat } from "@/hooks/use-chat";
 
 interface ConciergeInterfaceProps {
   inputMode: "text" | "voice";
@@ -20,14 +23,30 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
   const [message, setMessage] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [aiResponse, setAiResponse] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { currentConversation, createConversation } = useConversations();
+  const { streamMessage, cancelStream, isLoading, error } = useChat();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Create a new conversation on component mount if none exists
+  useEffect(() => {
+    if (!currentConversation) {
+      createConversation("New Conversation");
+    }
+  }, [currentConversation, createConversation]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (message.trim()) {
-      // In a real app, this would send the message to the AI
-      console.log("Sending message:", message);
+    if (!message.trim() || !currentConversation || isLoading) return;
+    
+    try {
+      await streamMessage(message, (chunk) => {
+        setAiResponse(prev => prev + chunk);
+      });
       setMessage("");
+      setAiResponse("");
+    } catch (err) {
+      console.error("Error sending message:", err);
     }
   };
 
@@ -58,6 +77,7 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Ask me anything..."
                 className="min-h-[60px] flex-1 resize-none shadow-sm"
+                disabled={isLoading}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
@@ -74,19 +94,33 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
                   onClick={() => setInputMode("voice")}
                   className="h-12 w-12"
                   aria-label="Switch to voice input"
+                  disabled={isLoading}
                 >
                   <Mic className="h-5 w-5" />
                 </Button>
                 
-                <Button
-                  type="submit"
-                  size="icon"
-                  className="h-12 w-12"
-                  disabled={!message.trim()}
-                  aria-label="Send message"
-                >
-                  <Send className="h-5 w-5" />
-                </Button>
+                {isLoading ? (
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="destructive"
+                    className="h-12 w-12"
+                    onClick={cancelStream}
+                    aria-label="Cancel message"
+                  >
+                    <Square className="h-5 w-5" />
+                  </Button>
+                ) : (
+                  <Button
+                    type="submit"
+                    size="icon"
+                    className="h-12 w-12"
+                    disabled={!message.trim() || isLoading}
+                    aria-label="Send message"
+                  >
+                    <Send className="h-5 w-5" />
+                  </Button>
+                )}
               </div>
             </form>
           ) : (
@@ -98,6 +132,7 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
                   onClick={() => setInputMode("text")}
                   className="h-12 w-12"
                   aria-label="Switch to text input"
+                  disabled={isLoading}
                 >
                   <Keyboard className="h-5 w-5" />
                 </Button>
@@ -108,6 +143,7 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
                   onClick={toggleListening}
                   className="h-16 w-16 rounded-full"
                   aria-label={isListening ? "Stop listening" : "Start listening"}
+                  disabled={isLoading}
                 >
                   <Mic className="h-6 w-6" />
                 </Button>
@@ -118,6 +154,7 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
                   onClick={() => setShowSettings(true)}
                   className="h-12 w-12"
                   aria-label="Sound settings"
+                  disabled={isLoading}
                 >
                   <Settings className="h-5 w-5" />
                 </Button>
@@ -140,6 +177,18 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
                   {isListening ? "Listening..." : "Click microphone to speak"}
                 </p>
               </div>
+            </div>
+          )}
+          
+          {error && (
+            <div className="mt-2 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+          
+          {aiResponse && (
+            <div className="mt-2 p-2 bg-muted rounded-lg">
+              <div className="whitespace-pre-wrap">{aiResponse}</div>
             </div>
           )}
         </div>
