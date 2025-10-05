@@ -125,23 +125,22 @@ export default function Admin() {
 
   // Load API keys when API tab is selected
   useEffect(() => {
-    if ((activeTab === "api" || activeTab === "model") && isAdmin) {
+    if (activeTab === "api" && isAdmin) {
       loadApiKeys();
     }
   }, [activeTab, isAdmin]);
 
   // Load available models when providers change
   useEffect(() => {
-    if (activeTab === "model" && isAdmin && selectedGenerationProvider) {
-      loadGenerationModels();
+    if (activeTab === "model" && isAdmin) {
+      if (selectedGenerationProvider) {
+        loadGenerationModels();
+      }
+      if (selectedEmbeddingProvider) {
+        loadEmbeddingModels();
+      }
     }
-  }, [selectedGenerationProvider, activeTab, isAdmin]);
-
-  useEffect(() => {
-    if (activeTab === "model" && isAdmin && selectedEmbeddingProvider) {
-      loadEmbeddingModels();
-    }
-  }, [selectedEmbeddingProvider, activeTab, isAdmin]);
+  }, [selectedGenerationProvider, selectedEmbeddingProvider, activeTab, isAdmin]);
 
   const loadApiKeys = async () => {
     setApiKeysLoading(true);
@@ -569,6 +568,7 @@ export default function Admin() {
           </div>
 
           <div className="lg:col-span-3">
+            {/* Knowledge Base Tab */}
             {activeTab === "knowledge" && (
               <div className="space-y-6">
                 <Card>
@@ -698,6 +698,7 @@ export default function Admin() {
               </div>
             )}
             
+            {/* API Keys Tab */}
             {activeTab === "api" && (
               <Card>
                 <CardHeader>
@@ -783,196 +784,195 @@ export default function Admin() {
               </Card>
             )}
             
-            {(activeTab === "model" || activeTab === "api") && (
-              <div className={activeTab === "model" ? "block" : "hidden"}>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Model Configuration</CardTitle>
-                    <CardDescription>
-                      Select the AI models and providers for generating responses and creating embeddings
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div className="space-y-4">
-                      {/* Generation Model Configuration */}
-                      <div className="space-y-4 p-4 border rounded-lg">
-                        <h3 className="font-medium text-lg">Text Generation</h3>
-                        
-                        <div className="space-y-2">
-                          <Label>Provider</Label>
-                          <Select 
-                            value={selectedGenerationProvider} 
-                            onValueChange={(value) => {
-                              setSelectedGenerationProvider(value);
-                              setSelectedGenerationModel("");
-                            }}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select provider" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {availableProviders
-                                .filter(provider => providerStatus[provider.id])
-                                .map((provider) => (
-                                  <SelectItem key={provider.id} value={provider.id}>
-                                    {provider.name}
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-                          {selectedGenerationProvider && !providerStatus[selectedGenerationProvider] && (
-                            <p className="text-sm text-destructive">
-                              Please add an API key for this provider in the API Keys tab.
-                            </p>
-                          )}
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center">
-                            <Label>Model</Label>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={loadGenerationModels}
-                              disabled={modelsLoading || !selectedGenerationProvider || !providerStatus[selectedGenerationProvider]}
-                            >
-                              {modelsLoading ? (
-                                <>
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  Loading...
-                                </>
-                              ) : (
-                                "Refresh Models"
-                              )}
-                            </Button>
-                          </div>
-                          <Select 
-                            value={selectedGenerationModel} 
-                            onValueChange={setSelectedGenerationModel}
-                            disabled={!selectedGenerationProvider || !providerStatus[selectedGenerationProvider]}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select model" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {generationModels.length > 0 ? (
-                                generationModels.map((model) => (
-                                  <SelectItem key={model.id} value={model.id}>
-                                    {model.name}
-                                  </SelectItem>
-                                ))
-                              ) : (
-                                <SelectItem value="" disabled>
-                                  {selectedGenerationProvider ? "No models loaded - click Refresh Models" : "Select a provider first"}
+            {/* Model Configuration Tab */}
+            {activeTab === "model" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Model Configuration</CardTitle>
+                  <CardDescription>
+                    Select the AI models and providers for generating responses and creating embeddings
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-4">
+                    {/* Generation Model Configuration */}
+                    <div className="space-y-4 p-4 border rounded-lg">
+                      <h3 className="font-medium text-lg">Text Generation</h3>
+                      
+                      <div className="space-y-2">
+                        <Label>Provider</Label>
+                        <Select 
+                          value={selectedGenerationProvider} 
+                          onValueChange={(value) => {
+                            setSelectedGenerationProvider(value);
+                            setSelectedGenerationModel("");
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select provider" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableProviders
+                              .filter(provider => providerStatus[provider.id])
+                              .map((provider) => (
+                                <SelectItem key={provider.id} value={provider.id}>
+                                  {provider.name}
                                 </SelectItem>
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                        {selectedGenerationProvider && !providerStatus[selectedGenerationProvider] && (
+                          <p className="text-sm text-destructive">
+                            Please add an API key for this provider in the API Keys tab.
+                          </p>
+                        )}
                       </div>
                       
-                      {/* Embedding Model Configuration */}
-                      <div className="space-y-4 p-4 border rounded-lg">
-                        <h3 className="font-medium text-lg">Text Embedding</h3>
-                        
-                        <div className="space-y-2">
-                          <Label>Provider</Label>
-                          <Select 
-                            value={selectedEmbeddingProvider} 
-                            onValueChange={(value) => {
-                              setSelectedEmbeddingProvider(value);
-                              setSelectedEmbeddingModel("");
-                            }}
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <Label>Model</Label>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={loadGenerationModels}
+                            disabled={modelsLoading || !selectedGenerationProvider || !providerStatus[selectedGenerationProvider]}
                           >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select provider" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {availableProviders
-                                .filter(provider => providerStatus[provider.id])
-                                .map((provider) => (
-                                  <SelectItem key={provider.id} value={provider.id}>
-                                    {provider.name}
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-                          {selectedEmbeddingProvider && !providerStatus[selectedEmbeddingProvider] && (
-                            <p className="text-sm text-destructive">
-                              Please add an API key for this provider in the API Keys tab.
-                            </p>
-                          )}
+                            {modelsLoading ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Loading...
+                              </>
+                            ) : (
+                              "Refresh Models"
+                            )}
+                          </Button>
                         </div>
-                        
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center">
-                            <Label>Model</Label>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={loadEmbeddingModels}
-                              disabled={modelsLoading || !selectedEmbeddingProvider || !providerStatus[selectedEmbeddingProvider]}
-                            >
-                              {modelsLoading ? (
-                                <>
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  Loading...
-                                </>
-                              ) : (
-                                "Refresh Models"
-                              )}
-                            </Button>
-                          </div>
-                          <Select 
-                            value={selectedEmbeddingModel} 
-                            onValueChange={setSelectedEmbeddingModel}
-                            disabled={!selectedEmbeddingProvider || !providerStatus[selectedEmbeddingProvider]}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select embedding model" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {embeddingModels.length > 0 ? (
-                                embeddingModels.map((model) => (
-                                  <SelectItem key={model.id} value={model.id}>
-                                    {model.name}
-                                  </SelectItem>
-                                ))
-                              ) : (
-                                <SelectItem value="" disabled>
-                                  {selectedEmbeddingProvider ? "No models loaded - click Refresh Models" : "Select a provider first"}
+                        <Select 
+                          value={selectedGenerationModel} 
+                          onValueChange={setSelectedGenerationModel}
+                          disabled={!selectedGenerationProvider || !providerStatus[selectedGenerationProvider]}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select model" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {generationModels.length > 0 ? (
+                              generationModels.map((model) => (
+                                <SelectItem key={model.id} value={model.id}>
+                                  {model.name}
                                 </SelectItem>
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-4 pt-4">
-                        <div className="space-y-2">
-                          <Label>Temperature</Label>
-                          <Input 
-                            type="range" 
-                            min="0" 
-                            max="2" 
-                            step="0.1" 
-                            defaultValue="0.7" 
-                          />
-                          <div className="flex justify-between text-sm text-muted-foreground">
-                            <span>Precise</span>
-                            <span>Balanced</span>
-                            <span>Creative</span>
-                          </div>
-                        </div>
+                              ))
+                            ) : (
+                              <SelectItem value="" disabled>
+                                {selectedGenerationProvider ? "No models loaded - click Refresh Models" : "Select a provider first"}
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                     
-                    <div className="pt-4">
-                      <Button onClick={handleSaveModelConfig}>Save Configuration</Button>
+                    {/* Embedding Model Configuration */}
+                    <div className="space-y-4 p-4 border rounded-lg">
+                      <h3 className="font-medium text-lg">Text Embedding</h3>
+                      
+                      <div className="space-y-2">
+                        <Label>Provider</Label>
+                        <Select 
+                          value={selectedEmbeddingProvider} 
+                          onValueChange={(value) => {
+                            setSelectedEmbeddingProvider(value);
+                            setSelectedEmbeddingModel("");
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select provider" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableProviders
+                              .filter(provider => providerStatus[provider.id])
+                              .map((provider) => (
+                                <SelectItem key={provider.id} value={provider.id}>
+                                  {provider.name}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                        {selectedEmbeddingProvider && !providerStatus[selectedEmbeddingProvider] && (
+                          <p className="text-sm text-destructive">
+                            Please add an API key for this provider in the API Keys tab.
+                          </p>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <Label>Model</Label>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={loadEmbeddingModels}
+                            disabled={modelsLoading || !selectedEmbeddingProvider || !providerStatus[selectedEmbeddingProvider]}
+                          >
+                            {modelsLoading ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Loading...
+                              </>
+                            ) : (
+                              "Refresh Models"
+                            )}
+                          </Button>
+                        </div>
+                        <Select 
+                          value={selectedEmbeddingModel} 
+                          onValueChange={setSelectedEmbeddingModel}
+                          disabled={!selectedEmbeddingProvider || !providerStatus[selectedEmbeddingProvider]}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select embedding model" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {embeddingModels.length > 0 ? (
+                              embeddingModels.map((model) => (
+                                <SelectItem key={model.id} value={model.id}>
+                                  {model.name}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="" disabled>
+                                {selectedEmbeddingProvider ? "No models loaded - click Refresh Models" : "Select a provider first"}
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
+                    
+                    <div className="space-y-4 pt-4">
+                      <div className="space-y-2">
+                        <Label>Temperature</Label>
+                        <Input 
+                          type="range" 
+                          min="0" 
+                          max="2" 
+                          step="0.1" 
+                          defaultValue="0.7" 
+                        />
+                        <div className="flex justify-between text-sm text-muted-foreground">
+                          <span>Precise</span>
+                          <span>Balanced</span>
+                          <span>Creative</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="pt-4">
+                    <Button onClick={handleSaveModelConfig}>Save Configuration</Button>
+                  </div>
+                </CardContent>
+              </Card>
             )}
           </div>
         </div>
