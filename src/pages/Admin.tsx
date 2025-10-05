@@ -28,7 +28,9 @@ import {
   Globe,
   FileUp,
   RefreshCw,
-  Loader2
+  Loader2,
+  CheckCircle,
+  XCircle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,12 +44,13 @@ interface KnowledgeSource {
   created_at: string;
 }
 
-interface OpenRouterModel {
+interface ApiKey {
   id: string;
-  name: string;
+  provider: string;
+  created_at: string;
 }
 
-interface OpenAIModel {
+interface Model {
   id: string;
   name: string;
 }
@@ -65,27 +68,25 @@ export default function Admin() {
   const [url, setUrl] = useState("");
   
   // API keys states
-  const [openaiKey, setOpenaiKey] = useState("");
-  const [openrouterKey, setOpenrouterKey] = useState("");
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const [newApiKey, setNewApiKey] = useState({ provider: "", key: "" });
+  const [apiKeysLoading, setApiKeysLoading] = useState(false);
   
   // Model configuration states
-  const [selectedGenerationProvider, setSelectedGenerationProvider] = useState("openrouter");
-  const [selectedEmbeddingProvider, setSelectedEmbeddingProvider] = useState("openai");
-  const [selectedGenerationModel, setSelectedGenerationModel] = useState("openai/gpt-4o");
-  const [selectedEmbeddingModel, setSelectedEmbeddingModel] = useState("text-embedding-3-large");
-  const [generationModels, setGenerationModels] = useState<OpenRouterModel[]>([]);
-  const [embeddingModels, setEmbeddingModels] = useState<OpenAIModel[]>([]);
+  const [selectedGenerationProvider, setSelectedGenerationProvider] = useState("");
+  const [selectedEmbeddingProvider, setSelectedEmbeddingProvider] = useState("");
+  const [selectedGenerationModel, setSelectedGenerationModel] = useState("");
+  const [selectedEmbeddingModel, setSelectedEmbeddingModel] = useState("");
+  const [generationModels, setGenerationModels] = useState<Model[]>([]);
+  const [embeddingModels, setEmbeddingModels] = useState<Model[]>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
+  const [providerStatus, setProviderStatus] = useState<Record<string, boolean>>({});
   
   // Available providers
-  const generationProviders = [
+  const availableProviders = [
     { id: "openrouter", name: "OpenRouter" },
     { id: "openai", name: "OpenAI" },
-    { id: "anthropic", name: "Anthropic" }
-  ];
-  
-  const embeddingProviders = [
-    { id: "openai", name: "OpenAI" },
+    { id: "anthropic", name: "Anthropic" },
     { id: "cohere", name: "Cohere" }
   ];
 
@@ -122,7 +123,7 @@ export default function Admin() {
     checkAdmin();
   }, [user]);
 
-  // Load API keys when component mounts
+  // Load API keys when API tab is selected
   useEffect(() => {
     if (activeTab === "api" && isAdmin) {
       loadApiKeys();
@@ -132,25 +133,145 @@ export default function Admin() {
   // Load model configuration when model tab is selected
   useEffect(() => {
     if (activeTab === "model" && isAdmin) {
-      // Load default models for the selected providers
+      loadApiKeys(); // Load keys to determine available providers
+    }
+  }, [activeTab, isAdmin]);
+
+  // Load available models when providers change
+  useEffect(() => {
+    if (activeTab === "model" && isAdmin && selectedGenerationProvider) {
       loadGenerationModels();
+    }
+  }, [selectedGenerationProvider, activeTab, isAdmin]);
+
+  useEffect(() => {
+    if (activeTab === "model" && isAdmin && selectedEmbeddingProvider) {
       loadEmbeddingModels();
     }
-  }, [activeTab, isAdmin, selectedGenerationProvider, selectedEmbeddingProvider]);
+  }, [selectedEmbeddingProvider, activeTab, isAdmin]);
 
   const loadApiKeys = async () => {
-    // In a real implementation, you would load saved API keys from a secure storage
-    // For now, we'll just initialize with empty values
-    // The actual API keys should be stored securely on the server side
-    console.log("Loading API keys (in a real app, these would be loaded from secure storage)");
+    setApiKeysLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('api_keys')
+        .select('id, provider, created_at')
+        .order('created_at', { ascending: false });
+      
+      if (!error && data) {
+        setApiKeys(data);
+        
+        // Update provider status
+        const status: Record<string, boolean> = {};
+        data.forEach((key: ApiKey) => {
+          status[key.provider] = true;
+        });
+        setProviderStatus(status);
+        
+        // Set default providers if available
+        if (!selectedGenerationProvider && status["openrouter"]) {
+          setSelectedGenerationProvider("openrouter");
+        }
+        if (!selectedEmbeddingProvider && status["openai"]) {
+          setSelectedEmbeddingProvider("openai");
+        }
+      }
+    } catch (error: any) {
+      toast({
+        title: "Failed to Load API Keys",
+        description: error.message || "Could not fetch API keys.",
+        variant: "destructive",
+      });
+    } finally {
+      setApiKeysLoading(false);
+    }
+  };
+
+  const addApiKey = async () => {
+    if (!newApiKey.provider || !newApiKey.key) {
+      toast({
+        title: "Missing Information",
+        description: "Please select a provider and enter an API key.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      const { data, error } = await supabase
+        .from('api_keys')
+        .insert([{
+          provider: newApiKey.provider,
+          api_key: newApiKey.key
+        }])
+        .select('id, provider, created_at');
+      
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        setApiKeys([data[0], ...apiKeys]);
+        setNewApiKey({ provider: "", key: "" });
+        setProviderStatus({ ...providerStatus, [newApiKey.provider]: true });
+        
+        toast({
+          title: "API Key Added",
+          description: `Successfully added API key for ${newApiKey.provider}.`,
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Failed to Add API Key",
+        description: error.message || "Could not add API key.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteApiKey = async (id: string, provider: string) => {
+    try {
+      const { error } = await supabase
+        .from('api_keys')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      setApiKeys(apiKeys.filter(key => key.id !== id));
+      setProviderStatus({ ...providerStatus, [provider]: false });
+      
+      // Reset selections if the deleted key was selected
+      if (selectedGenerationProvider === provider) {
+        setSelectedGenerationProvider("");
+        setGenerationModels([]);
+      }
+      if (selectedEmbeddingProvider === provider) {
+        setSelectedEmbeddingProvider("");
+        setEmbeddingModels([]);
+      }
+      
+      toast({
+        title: "API Key Deleted",
+        description: `Successfully deleted API key for ${provider}.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to Delete API Key",
+        description: error.message || "Could not delete API key.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Load generation models based on selected provider
   const loadGenerationModels = async () => {
-    if (!selectedGenerationProvider) {
+    if (!selectedGenerationProvider) return;
+    
+    // Check if we have an API key for this provider
+    const hasApiKey = apiKeys.some(key => key.provider === selectedGenerationProvider);
+    if (!hasApiKey) {
       toast({
-        title: "Provider Required",
-        description: "Please select a generation provider first.",
+        title: "API Key Required",
+        description: `Please add an API key for ${selectedGenerationProvider} first.`,
         variant: "destructive",
       });
       return;
@@ -158,19 +279,19 @@ export default function Admin() {
     
     setModelsLoading(true);
     try {
-      let modelList = [];
+      let modelList: Model[] = [];
       
       if (selectedGenerationProvider === "openrouter") {
-        // Load default OpenRouter models
-        modelList = [
-          { id: "openai/gpt-4o", name: "OpenAI GPT-4o" },
-          { id: "openai/gpt-4-turbo", name: "OpenAI GPT-4 Turbo" },
-          { id: "anthropic/claude-3-opus", name: "Anthropic Claude 3 Opus" },
-          { id: "anthropic/claude-3-sonnet", name: "Anthropic Claude 3 Sonnet" },
-          { id: "google/gemini-pro", name: "Google Gemini Pro" }
-        ];
+        const response = await fetch('https://openrouter.ai/api/v1/models');
+        if (response.ok) {
+          const data = await response.json();
+          modelList = data.data.map((model: any) => ({
+            id: model.id,
+            name: model.name
+          }));
+        }
       } else if (selectedGenerationProvider === "openai") {
-        // Default OpenAI models
+        // OpenAI models
         modelList = [
           { id: "gpt-4o", name: "GPT-4o" },
           { id: "gpt-4-turbo", name: "GPT-4 Turbo" },
@@ -178,7 +299,7 @@ export default function Admin() {
           { id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo" }
         ];
       } else if (selectedGenerationProvider === "anthropic") {
-        // Default Anthropic models
+        // Anthropic models
         modelList = [
           { id: "claude-3-5-sonnet-20240620", name: "Claude 3.5 Sonnet" },
           { id: "claude-3-opus-20240229", name: "Claude 3 Opus" },
@@ -193,6 +314,11 @@ export default function Admin() {
       if (!selectedGenerationModel && modelList.length > 0) {
         setSelectedGenerationModel(modelList[0].id);
       }
+      
+      toast({
+        title: "Models Loaded",
+        description: `Successfully loaded ${modelList.length} models from ${selectedGenerationProvider}.`,
+      });
     } catch (error: any) {
       toast({
         title: "Failed to Load Models",
@@ -206,10 +332,14 @@ export default function Admin() {
 
   // Load embedding models based on selected provider
   const loadEmbeddingModels = async () => {
-    if (!selectedEmbeddingProvider) {
+    if (!selectedEmbeddingProvider) return;
+    
+    // Check if we have an API key for this provider
+    const hasApiKey = apiKeys.some(key => key.provider === selectedEmbeddingProvider);
+    if (!hasApiKey) {
       toast({
-        title: "Provider Required",
-        description: "Please select an embedding provider first.",
+        title: "API Key Required",
+        description: `Please add an API key for ${selectedEmbeddingProvider} first.`,
         variant: "destructive",
       });
       return;
@@ -217,17 +347,17 @@ export default function Admin() {
     
     setModelsLoading(true);
     try {
-      let modelList = [];
+      let modelList: Model[] = [];
       
       if (selectedEmbeddingProvider === "openai") {
-        // Default OpenAI embedding models
+        // OpenAI embedding models
         modelList = [
           { id: "text-embedding-3-large", name: "Text Embedding 3 Large" },
           { id: "text-embedding-3-small", name: "Text Embedding 3 Small" },
           { id: "text-embedding-ada-002", name: "Text Embedding Ada 002" }
         ];
       } else if (selectedEmbeddingProvider === "cohere") {
-        // Default Cohere embedding models
+        // Cohere embedding models
         modelList = [
           { id: "embed-english-v3.0", name: "Embed English v3.0" },
           { id: "embed-multilingual-v3.0", name: "Embed Multilingual v3.0" },
@@ -241,6 +371,11 @@ export default function Admin() {
       if (!selectedEmbeddingModel && modelList.length > 0) {
         setSelectedEmbeddingModel(modelList[0].id);
       }
+      
+      toast({
+        title: "Embedding Models Loaded",
+        description: `Successfully loaded ${modelList.length} embedding models from ${selectedEmbeddingProvider}.`,
+      });
     } catch (error: any) {
       toast({
         title: "Failed to Load Embedding Models",
@@ -317,15 +452,25 @@ export default function Admin() {
     }
   };
 
-  const handleSaveApiKeys = () => {
-    // In a real implementation, you would save API keys to a secure storage
-    toast({
-      title: "API keys updated",
-      description: "Your API keys have been saved securely.",
-    });
-  };
-
   const handleSaveModelConfig = () => {
+    if (!selectedGenerationProvider || !selectedGenerationModel) {
+      toast({
+        title: "Generation Model Required",
+        description: "Please select a generation provider and model.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!selectedEmbeddingProvider || !selectedEmbeddingModel) {
+      toast({
+        title: "Embedding Model Required",
+        description: "Please select an embedding provider and model.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     toast({
       title: "Model configuration updated",
       description: `Generation: ${selectedGenerationProvider}/${selectedGenerationModel}, Embedding: ${selectedEmbeddingProvider}/${selectedEmbeddingModel}`,
@@ -571,46 +716,75 @@ export default function Admin() {
                 <CardContent className="space-y-6">
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="openai-key">OpenAI API Key</Label>
+                      <Label>Add New API Key</Label>
                       <div className="flex gap-2">
-                        <Input
-                          id="openai-key"
-                          type="password"
-                          placeholder="sk-..."
-                          value={openaiKey}
-                          onChange={(e) => setOpenaiKey(e.target.value)}
-                        />
-                        <Button 
-                          variant="outline" 
-                          onClick={() => toast({ title: "Key saved", description: "OpenAI API key saved securely" })}
+                        <Select 
+                          value={newApiKey.provider} 
+                          onValueChange={(value) => setNewApiKey({...newApiKey, provider: value})}
                         >
-                          Save
-                        </Button>
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Select provider" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableProviders.map((provider) => (
+                              <SelectItem key={provider.id} value={provider.id}>
+                                {provider.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          type="password"
+                          placeholder="API key"
+                          value={newApiKey.key}
+                          onChange={(e) => setNewApiKey({...newApiKey, key: e.target.value})}
+                          className="flex-1"
+                        />
+                        <Button onClick={addApiKey}>Add</Button>
                       </div>
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="openrouter-key">OpenRouter API Key</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          id="openrouter-key"
-                          type="password"
-                          placeholder="sk-or-..."
-                          value={openrouterKey}
-                          onChange={(e) => setOpenrouterKey(e.target.value)}
-                        />
-                        <Button 
-                          variant="outline" 
-                          onClick={() => toast({ title: "Key saved", description: "OpenRouter API key saved securely" })}
-                        >
-                          Save
-                        </Button>
-                      </div>
+                      <Label>Saved API Keys</Label>
+                      {apiKeysLoading ? (
+                        <div className="space-y-2">
+                          {[...Array(3)].map((_, i) => (
+                            <div key={i} className="h-12 bg-gray-200 rounded animate-pulse"></div>
+                          ))}
+                        </div>
+                      ) : apiKeys.length === 0 ? (
+                        <p className="text-muted-foreground text-sm">No API keys saved yet.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {apiKeys.map((key) => (
+                            <div key={key.id} className="flex items-center justify-between p-3 border rounded-lg">
+                              <div className="flex items-center gap-3">
+                                {providerStatus[key.provider] ? (
+                                  <CheckCircle className="h-5 w-5 text-green-500" />
+                                ) : (
+                                  <XCircle className="h-5 w-5 text-red-500" />
+                                )}
+                                <div>
+                                  <p className="font-medium">
+                                    {availableProviders.find(p => p.id === key.provider)?.name || key.provider}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Added {new Date(key.created_at).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              </div>
+                              <Button 
+                                variant="destructive" 
+                                size="sm" 
+                                onClick={() => deleteApiKey(key.id, key.provider)}
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  
-                  <div className="pt-4">
-                    <Button onClick={handleSaveApiKeys}>Save All Keys</Button>
                   </div>
                 </CardContent>
               </Card>
@@ -643,13 +817,20 @@ export default function Admin() {
                             <SelectValue placeholder="Select provider" />
                           </SelectTrigger>
                           <SelectContent>
-                            {generationProviders.map((provider) => (
-                              <SelectItem key={provider.id} value={provider.id}>
-                                {provider.name}
-                              </SelectItem>
-                            ))}
+                            {availableProviders
+                              .filter(provider => providerStatus[provider.id])
+                              .map((provider) => (
+                                <SelectItem key={provider.id} value={provider.id}>
+                                  {provider.name}
+                                </SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
+                        {selectedGenerationProvider && !providerStatus[selectedGenerationProvider] && (
+                          <p className="text-sm text-destructive">
+                            Please add an API key for this provider in the API Keys tab.
+                          </p>
+                        )}
                       </div>
                       
                       <div className="space-y-2">
@@ -659,7 +840,7 @@ export default function Admin() {
                             variant="outline" 
                             size="sm" 
                             onClick={loadGenerationModels}
-                            disabled={modelsLoading}
+                            disabled={modelsLoading || !selectedGenerationProvider || !providerStatus[selectedGenerationProvider]}
                           >
                             {modelsLoading ? (
                               <>
@@ -674,6 +855,7 @@ export default function Admin() {
                         <Select 
                           value={selectedGenerationModel} 
                           onValueChange={setSelectedGenerationModel}
+                          disabled={!selectedGenerationProvider || !providerStatus[selectedGenerationProvider]}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Select model" />
@@ -686,11 +868,9 @@ export default function Admin() {
                                 </SelectItem>
                               ))
                             ) : (
-                              <>
-                                <SelectItem value="openai/gpt-4o">OpenAI GPT-4o</SelectItem>
-                                <SelectItem value="openai/gpt-4-turbo">OpenAI GPT-4 Turbo</SelectItem>
-                                <SelectItem value="anthropic/claude-3-opus">Anthropic Claude 3 Opus</SelectItem>
-                              </>
+                              <SelectItem value="" disabled>
+                                {selectedGenerationProvider ? "No models loaded - click Refresh Models" : "Select a provider first"}
+                              </SelectItem>
                             )}
                           </SelectContent>
                         </Select>
@@ -714,13 +894,20 @@ export default function Admin() {
                             <SelectValue placeholder="Select provider" />
                           </SelectTrigger>
                           <SelectContent>
-                            {embeddingProviders.map((provider) => (
-                              <SelectItem key={provider.id} value={provider.id}>
-                                {provider.name}
-                              </SelectItem>
-                            ))}
+                            {availableProviders
+                              .filter(provider => providerStatus[provider.id])
+                              .map((provider) => (
+                                <SelectItem key={provider.id} value={provider.id}>
+                                  {provider.name}
+                                </SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
+                        {selectedEmbeddingProvider && !providerStatus[selectedEmbeddingProvider] && (
+                          <p className="text-sm text-destructive">
+                            Please add an API key for this provider in the API Keys tab.
+                          </p>
+                        )}
                       </div>
                       
                       <div className="space-y-2">
@@ -730,7 +917,7 @@ export default function Admin() {
                             variant="outline" 
                             size="sm" 
                             onClick={loadEmbeddingModels}
-                            disabled={modelsLoading}
+                            disabled={modelsLoading || !selectedEmbeddingProvider || !providerStatus[selectedEmbeddingProvider]}
                           >
                             {modelsLoading ? (
                               <>
@@ -745,6 +932,7 @@ export default function Admin() {
                         <Select 
                           value={selectedEmbeddingModel} 
                           onValueChange={setSelectedEmbeddingModel}
+                          disabled={!selectedEmbeddingProvider || !providerStatus[selectedEmbeddingProvider]}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Select embedding model" />
@@ -757,11 +945,9 @@ export default function Admin() {
                                 </SelectItem>
                               ))
                             ) : (
-                              <>
-                                <SelectItem value="text-embedding-3-large">Text Embedding 3 Large</SelectItem>
-                                <SelectItem value="text-embedding-3-small">Text Embedding 3 Small</SelectItem>
-                                <SelectItem value="text-embedding-ada-002">Text Embedding Ada 002</SelectItem>
-                              </>
+                              <SelectItem value="" disabled>
+                                {selectedEmbeddingProvider ? "No models loaded - click Refresh Models" : "Select a provider first"}
+                              </SelectItem>
                             )}
                           </SelectContent>
                         </Select>
