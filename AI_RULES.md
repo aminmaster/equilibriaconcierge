@@ -1,19 +1,87 @@
-# Tech Stack
+# AI Implementation Guidelines
 
-- You are building a React application.
-- Use TypeScript.
-- Use React Router. KEEP the routes in src/App.tsx
-- Always put source code in the src folder.
-- Put pages into src/pages/
-- Put components into src/components/
-- The main page (default page) is src/pages/Index.tsx
-- UPDATE the main page to include the new components. OTHERWISE, the user can NOT see any components!
-- ALWAYS try to use the shadcn/ui library.
-- Tailwind CSS: always use Tailwind CSS for styling components. Utilize Tailwind classes extensively for layout, spacing, colors, and other design aspects.
+## Core Principles
 
-Available packages and libraries:
+1. **User-Centric Design**: The AI should always serve the user's needs and provide value
+2. **Transparency**: Users should understand when they're interacting with AI
+3. **Privacy**: User conversations and data must be protected
+4. **Accuracy**: The AI should provide accurate, up-to-date information
+5. **Safety**: Implement safeguards against harmful or inappropriate content
 
-- The lucide-react package is installed for icons.
-- You ALREADY have ALL the shadcn/ui components and their dependencies installed. So you don't need to install them again.
-- You have ALL the necessary Radix UI components installed.
-- Use prebuilt components from the shadcn/ui library after importing them. Note that these files shouldn't be edited, so make new components if you need to change them.
+## Technical Implementation
+
+### Retrieval-Augmented Generation (RAG)
+
+1. **Document Ingestion**:
+   - Chunk documents semantically using natural breakpoints
+   - Generate embeddings using OpenAI's text-embedding-3-large model
+   - Store embeddings in Supabase with pgvector extension
+
+2. **Query Processing**:
+   - Embed user queries using the same model
+   - Perform similarity search in the vector database
+   - Retrieve top-k most relevant chunks
+
+3. **Response Generation**:
+   - Construct prompt with retrieved context
+   - Call OpenRouter API with admin-configured model
+   - Stream response tokens to client for real-time feedback
+
+### Conversation Management
+
+1. **Session Handling**:
+   - Anonymous users: Store conversations with session ID
+   - Authenticated users: Link conversations to user ID
+   - Automatic cleanup of expired anonymous sessions
+
+2. **Feedback System**:
+   - Thumbs up/down for each AI response
+   - Detailed feedback modal for suggestions
+   - Edit functionality for correcting responses
+
+### Model Configuration
+
+1. **Model Selection**:
+   - Admin-configurable text generation models
+   - Support for multiple providers (OpenAI, Anthropic, Google)
+   - Temperature and other parameter controls
+
+2. **Fallback Mechanisms**:
+   - Graceful degradation when primary model fails
+   - Clear error messages for users
+   - Logging for system administrators
+
+## User Experience Guidelines
+
+1. **Loading States**:
+   - Skeleton loaders for content areas
+   - Streaming UI for AI responses
+   - Clear progress indicators for long operations
+
+2. **Error Handling**:
+   - User-friendly error messages
+   - Retry mechanisms for failed operations
+   - Graceful degradation when features are unavailable
+
+3. **Accessibility**:
+   - Keyboard navigation support
+   - Screen reader compatibility
+   - Color contrast compliance
+   - Responsive design for all devices
+
+## Security Considerations
+
+1. **Data Protection**:
+   - End-to-end encryption for sensitive data
+   - Secure storage of API keys
+   - Regular security audits
+
+2. **Content Safety**:
+   - Content filtering for inappropriate inputs/outputs
+   - Rate limiting to prevent abuse
+   - User reporting mechanisms
+
+3. **Compliance**:
+   - GDPR compliance for user data
+   - Clear privacy policy and terms of service
+   - Data deletion mechanisms
