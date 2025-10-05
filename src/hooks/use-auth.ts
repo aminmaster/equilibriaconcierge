@@ -118,7 +118,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(null);
   };
 
-  const contextValue: AuthContextType = {
+  // Create the value object separately to avoid inline object creation
+  const value = {
     user,
     loading,
     signIn,
@@ -127,7 +128,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={contextValue}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
