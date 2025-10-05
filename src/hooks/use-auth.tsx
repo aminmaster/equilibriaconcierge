@@ -52,7 +52,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             id: session.user.id,
             email: session.user.email || '',
             name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'User',
-            role: 'user'
+            role: profile.role || 'user'
           });
         }
       }
@@ -76,7 +76,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 id: session.user.id,
                 email: session.user.email || '',
                 name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'User',
-                role: 'user'
+                role: profile.role || 'user'
               });
             }
           });
@@ -107,7 +107,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       options: {
         data: {
           first_name: firstName,
-          last_name: lastName
+          last_name: lastName,
+          role: 'user' // Default role is user
         }
       }
     });

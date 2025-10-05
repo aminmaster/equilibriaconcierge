@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { v4 as uuidv4 } from 'uuid';
 
 export const useAnonymousSession = () => {
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -23,16 +25,25 @@ export const useAnonymousSession = () => {
       }
     }
     
-    // Create new anonymous session
-    const newSessionId = 'anon_' + Math.random().toString(36).substr(2, 9);
-    const expiryDate = new Date();
-    expiryDate.setDate(expiryDate.getDate() + 2); // 48-hour expiry
-    
-    localStorage.setItem('anonymousSessionId', newSessionId);
-    localStorage.setItem('anonymousSessionExpiry', expiryDate.toISOString());
-    
-    setSessionId(newSessionId);
-    setIsAnonymous(true);
+    // Check if user is authenticated
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        // User is authenticated
+        setSessionId(session.user.id);
+        setIsAnonymous(false);
+      } else {
+        // Create new anonymous session
+        const newSessionId = 'anon_' + uuidv4();
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + 2); // 48-hour expiry
+        
+        localStorage.setItem('anonymousSessionId', newSessionId);
+        localStorage.setItem('anonymousSessionExpiry', expiryDate.toISOString());
+        
+        setSessionId(newSessionId);
+        setIsAnonymous(true);
+      }
+    });
   }, []);
 
   return {

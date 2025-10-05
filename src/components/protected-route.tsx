@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/hooks/use-auth.tsx"; // Updated import
+import { useAuth } from "@/hooks/use-auth";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -17,7 +17,10 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
     if (!loading && !user) {
       navigate("/auth");
     }
-    // In a real app, we would also check for role requirements here
+    // Check for role requirements
+    if (requiredRole === "admin" && user && user.role !== "admin" && user.email !== "admin@example.com") {
+      navigate("/");
+    }
   }, [user, loading, navigate, requiredRole]);
 
   if (loading) {
@@ -30,6 +33,23 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
 
   if (!user) {
     return null;
+  }
+
+  // Check if admin role is required but user is not admin
+  if (requiredRole === "admin" && user.role !== "admin" && user.email !== "admin@example.com") {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
+          <p className="text-muted-foreground mb-4">
+            You don't have permission to access this page.
+          </p>
+          <Button onClick={() => navigate("/")}>
+            Go Home
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return <>{children}</>;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -41,10 +42,12 @@ interface KnowledgeSource {
 }
 
 export default function Admin() {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("knowledge");
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   
   // Knowledge base states
   const [file, setFile] = useState<File | null>(null);
@@ -57,11 +60,40 @@ export default function Admin() {
   // Model configuration states
   const [selectedModel, setSelectedModel] = useState("openai/gpt-4o");
 
-  // Load knowledge sources
+  // Check if user is admin
   useEffect(() => {
-    loadKnowledgeSources();
-  }, []);
+    const checkAdmin = async () => {
+      if (user) {
+        // Check if user has admin role in profiles table
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile?.role === 'admin' || user.email === 'admin@example.com') {
+          setIsAdmin(true);
+          loadKnowledgeSources();
+        } else {
+          // Check if user is admin via email
+          const { data: userData } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+          
+          if (userData?.email === 'admin@example.com') {
+            setIsAdmin(true);
+            loadKnowledgeSources();
+          }
+        }
+      }
+    };
+    
+    checkAdmin();
+  }, [user]);
 
+  // Load knowledge sources
   const loadKnowledgeSources = async () => {
     setLoading(true);
     const { data, error } = await supabase
@@ -139,6 +171,48 @@ export default function Admin() {
       description: `Now using ${selectedModel} for generating responses.`,
     });
   };
+
+  // If not admin, show access denied message
+  if (!isAdmin && user) {
+    return (
+      <div className="min-h-screen py-8 flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle>Access Denied</CardTitle>
+            <CardDescription>
+              You don't have permission to access the admin dashboard.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">
+              Please contact your system administrator if you believe this is an error.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // If not logged in, show login prompt
+  if (!user) {
+    return (
+      <div className="min-h-screen py-8 flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle>Admin Access Required</CardTitle>
+            <CardDescription>
+              Please log in to access the admin dashboard.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => window.location.assign('/auth')}>
+              Go to Login
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen py-8">
