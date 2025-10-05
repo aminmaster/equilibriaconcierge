@@ -71,21 +71,9 @@ export default function Admin() {
           .eq('id', user.id)
           .single();
         
-        if (profile?.role === 'admin' || user.email === 'admin@example.com') {
+        if (profile?.role === 'admin') {
           setIsAdmin(true);
           loadKnowledgeSources();
-        } else {
-          // Check if user is admin via email
-          const { data: userData } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', user.id)
-            .single();
-          
-          if (userData?.email === 'admin@example.com') {
-            setIsAdmin(true);
-            loadKnowledgeSources();
-          }
         }
       }
     };

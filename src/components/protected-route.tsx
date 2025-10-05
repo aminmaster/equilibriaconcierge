@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/use-auth";
+import { Button } from "@/components/ui/button";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -18,7 +19,7 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
       navigate("/auth");
     }
     // Check for role requirements
-    if (requiredRole === "admin" && user && user.role !== "admin" && user.email !== "admin@example.com") {
+    if (requiredRole === "admin" && user && user.role !== "admin") {
       navigate("/");
     }
   }, [user, loading, navigate, requiredRole]);
@@ -36,7 +37,7 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
   }
 
   // Check if admin role is required but user is not admin
-  if (requiredRole === "admin" && user.role !== "admin" && user.email !== "admin@example.com") {
+  if (requiredRole === "admin" && user.role !== "admin") {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
