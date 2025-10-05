@@ -130,7 +130,7 @@ export default function Admin() {
     }
   }, [activeTab, isAdmin]);
 
-  // Load model configuration when model tab is selected
+  // Load API keys when model tab is selected
   useEffect(() => {
     if (activeTab === "model" && isAdmin) {
       loadApiKeys(); // Load keys to determine available providers
