@@ -71,6 +71,7 @@ serve(async (req) => {
       },
     )
   } catch (error) {
+    console.error('Ingest function error:', error)
     // Update status to failed
     // In a real implementation, we would also store the error message
     if (req.json && (await req.json()).sourceId) {
