@@ -10,17 +10,11 @@ interface User {
 }
 
 // Create context
-const AuthContext = createContext<{
-  user: User | null;
-  loading: boolean;
-  signIn: (email: string, password: string) => Promise<any>;
-  signUp: (email: string, password: string, name: string) => Promise<any>;
-  signOut: () => Promise<void>;
-}>({
-  user: null,
+const AuthContext = createContext({
+  user: null as User | null,
   loading: true,
-  signIn: async () => {},
-  signUp: async () => {},
+  signIn: async (email: string, password: string) => {},
+  signUp: async (email: string, password: string, name: string) => {},
   signOut: async () => {},
 });
 
@@ -49,7 +43,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             id: session.user.id,
             email: session.user.email || '',
             name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'User',
-            role: 'user' // In a real app, this would come from the user's role in the database
+            role: 'user'
           });
         }
       }
