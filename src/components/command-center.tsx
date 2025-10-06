@@ -43,6 +43,12 @@ export function CommandCenter() {
     setIsClient(true);
   }, []);
 
+  // Don't show command center on fullscreen routes
+  const isFullScreenRoute = location.pathname === "/concierge";
+  if (isFullScreenRoute) {
+    return null;
+  }
+
   const handleItemClick = (item: typeof MENU_ITEMS[number]) => {
     if (item.path) {
       navigate(item.path);

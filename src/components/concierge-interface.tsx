@@ -60,15 +60,6 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
       <div className="max-w-4xl mx-auto p-4">
         {/* Glassmorphism panel */}
         <div className="relative rounded-2xl bg-background/50 border shadow-lg p-4">
-          {/* Overlapping command center logo */}
-          <div className="absolute -top-8 left-1/2 transform -translate-x-1/2">
-            <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center shadow-lg">
-              <div className="w-8 h-8 rounded-full bg-background/20 flex items-center justify-center">
-                <div className="w-2 h-2 rounded-full bg-background"></div>
-              </div>
-            </div>
-          </div>
-
           {inputMode === "text" ? (
             <form onSubmit={handleSubmit} className="flex gap-2 items-end">
               <Textarea
@@ -124,8 +115,8 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
               </div>
             </form>
           ) : (
-            <div className="flex flex-col items-center gap-4">
-              <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
                 <Button
                   size="icon"
                   variant="outline"
@@ -141,26 +132,15 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
                   size="icon"
                   variant={isListening ? "destructive" : "default"}
                   onClick={toggleListening}
-                  className="h-16 w-16 rounded-full"
+                  className="h-12 w-12"
                   aria-label={isListening ? "Stop listening" : "Start listening"}
                   disabled={isLoading}
                 >
-                  <Mic className="h-6 w-6" />
-                </Button>
-                
-                <Button
-                  size="icon"
-                  variant="outline"
-                  onClick={() => setShowSettings(true)}
-                  className="h-12 w-12"
-                  aria-label="Sound settings"
-                  disabled={isLoading}
-                >
-                  <Settings className="h-5 w-5" />
+                  <Mic className="h-5 w-5" />
                 </Button>
               </div>
               
-              <div className="w-full max-w-md">
+              <div className="flex-1">
                 <div className="flex justify-center gap-1 h-6">
                   {[...Array(20)].map((_, i) => (
                     <div 
@@ -177,6 +157,19 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
                   {isListening ? "Listening..." : "Click microphone to speak"}
                 </p>
               </div>
+              
+              {isLoading && (
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="destructive"
+                  className="h-12 w-12"
+                  onClick={cancelStream}
+                  aria-label="Cancel message"
+                >
+                  <Square className="h-5 w-5" />
+                </Button>
+              )}
             </div>
           )}
           
