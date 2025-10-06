@@ -56,18 +56,18 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
   }, [message]);
 
   return (
-    <div className="bg-background/80 backdrop-blur-xl border-t">
-      <div className="p-4">
+    <div className="bg-background/80 backdrop-blur-sm border-t"> {/* Reduced backdrop blur */}
+      <div className="p-2"> {/* Reduced padding */}
         {/* Glassmorphism panel */}
-        <div className="relative rounded-2xl bg-background/50 border shadow-lg p-4">
+        <div className="relative rounded-lg bg-background/40 border shadow-sm p-2"> {/* Reduced padding and border */}
           {inputMode === "text" ? (
-            <form onSubmit={handleSubmit} className="flex gap-2 items-end">
+            <form onSubmit={handleSubmit} className="flex gap-1 items-end"> {/* Reduced gap */}
               <Textarea
                 ref={textareaRef}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Ask me anything..."
-                className="min-h-12 h-12 flex-1 resize-none shadow-sm py-3"
+                className="min-h-10 h-10 flex-1 resize-none shadow-sm py-2 text-sm" {/* Reduced height and padding */}
                 disabled={isLoading}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
@@ -77,86 +77,86 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
                 }}
               />
               
-              <div className="flex gap-2">
+              <div className="flex gap-1"> {/* Reduced gap */}
                 {isLoading ? (
                   <Button
                     type="button"
                     size="icon"
                     variant="destructive"
-                    className="h-12 w-12"
+                    className="h-10 w-10" {/* Reduced button size */}
                     onClick={cancelStream}
                     aria-label="Cancel message"
                   >
-                    <Square className="h-5 w-5" />
+                    <Square className="h-4 w-4" /> {/* Reduced icon size */}
                   </Button>
                 ) : (
                   <>
                     <Button
                       type="submit"
                       size="icon"
-                      className="h-12 w-12"
+                      className="h-10 w-10" {/* Reduced button size */}
                       disabled={!message.trim() || isLoading}
                       aria-label="Send message"
                       variant={message.trim() ? "default" : "secondary"}
                     >
-                      <Send className="h-5 w-5" />
+                      <Send className="h-4 w-4" /> {/* Reduced icon size */}
                     </Button>
                     <Button
                       type="button"
                       size="icon"
                       variant="outline"
                       onClick={() => setInputMode("voice")}
-                      className="h-12 w-12"
+                      className="h-10 w-10" {/* Reduced button size */}
                       aria-label="Switch to voice input"
                       disabled={isLoading}
                     >
-                      <Mic className="h-5 w-5" />
+                      <Mic className="h-4 w-4" /> {/* Reduced icon size */}
                     </Button>
                   </>
                 )}
               </div>
             </form>
           ) : (
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2"> {/* Reduced gap */}
               <div className="flex-1">
-                <div className="flex justify-center gap-1 h-6">
-                  {[...Array(20)].map((_, i) => (
+                <div className="flex justify-center gap-1 h-5"> {/* Reduced height */}
+                  {[...Array(15)].map((_, i) => ( {/* Reduced number of bars */}
                     <div 
                       key={i} 
                       className="w-1 bg-primary rounded-full animate-pulse"
                       style={{
-                        height: `${Math.random() * 20 + 5}px`,
+                        height: `${Math.random() * 15 + 3}px`, {/* Reduced height range */}
                         animationDelay: `${i * 0.1}s`
                       }}
                     />
                   ))}
                 </div>
-                <p className="text-center text-sm text-muted-foreground mt-2">
+                <p className="text-center text-xs text-muted-foreground mt-1"> {/* Reduced text size */}
                   {isListening ? "Listening..." : "Click microphone to speak"}
                 </p>
               </div>
               
-              <div className="flex gap-2">
+              <div className="flex gap-1"> {/* Reduced gap */}
                 <Button
                   size="icon"
                   variant={isListening ? "destructive" : "default"}
                   onClick={toggleListening}
-                  className="h-12 w-12"
+                  className="h-10 w-10" {/* Reduced button size */}
                   aria-label={isListening ? "Stop listening" : "Start listening"}
                   disabled={isLoading}
                 >
-                  <Mic className="h-5 w-5" />
+                  <Mic className="h-4 w-4" /> {/* Reduced icon size */}
                 </Button>
                 
                 <Button
                   size="icon"
                   variant="outline"
                   onClick={() => setInputMode("text")}
-                  className="h-12 w-12"
+                  className="h-10 w-10" {/* Reduced button size */}
                   aria-label="Switch to text input"
                   disabled={isLoading}
                 >
-                  <Keyboard className="h-5 w-5" />
+                  <Keyboard className="h-4 w-4" /> {/* Reduced icon size */}
                 </Button>
                 
                 {isLoading && (
@@ -164,11 +164,11 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
                     type="button"
                     size="icon"
                     variant="destructive"
-                    className="h-12 w-12"
+                    className="h-10 w-10" {/* Reduced button size */}
                     onClick={cancelStream}
                     aria-label="Cancel message"
                   >
-                    <Square className="h-5 w-5" />
+                    <Square className="h-4 w-4" /> {/* Reduced icon size */}
                   </Button>
                 )}
               </div>
@@ -176,7 +176,7 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
           )}
           
           {error && (
-            <div className="mt-2 text-sm text-destructive">
+            <div className="mt-1 text-xs text-destructive"> {/* Reduced margin and text size */}
               Error: {error}
             </div>
           )}
