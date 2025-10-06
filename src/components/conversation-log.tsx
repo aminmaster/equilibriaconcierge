@@ -53,7 +53,7 @@ export function ConversationLog() {
         </p>
       </div>
       
-      <ScrollArea className="flex-1 p-3 pb-20"> {/* Added pb-20 to account for fixed input bar */}
+      <ScrollArea className="flex-1 p-3">
         {!currentConversation || currentConversation.messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-4">
             <div className="bg-muted rounded-full p-3 mb-3">
@@ -65,7 +65,7 @@ export function ConversationLog() {
             </p>
           </div>
         ) : (
-          <div className="space-y-4 pb-4">
+          <div className="space-y-4 pb-3">
             {currentConversation.messages.map((message) => (
               <div 
                 key={message.id} 
