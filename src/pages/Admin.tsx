@@ -123,28 +123,26 @@ export default function Admin() {
     checkAdmin();
   }, [user]);
 
-  // Load API keys when API tab is selected
+  // Modified useEffect to include model tab
   useEffect(() => {
-    if (activeTab === "api" && isAdmin) {
+    if ((activeTab === "api" || activeTab === "model") && isAdmin) {
       loadApiKeys();
     }
   }, [activeTab, isAdmin]);
 
-  // Load available models when providers change
+  // New useEffect for Generation Models
   useEffect(() => {
-    if (activeTab === "model" && isAdmin) {
-      console.log("Model tab active, loading models if providers selected");
-      console.log("Generation provider:", selectedGenerationProvider);
-      console.log("Embedding provider:", selectedEmbeddingProvider);
-      
-      if (selectedGenerationProvider) {
-        loadGenerationModels();
-      }
-      if (selectedEmbeddingProvider) {
-        loadEmbeddingModels();
-      }
+    if (selectedGenerationProvider) {
+      loadGenerationModels();
     }
-  }, [activeTab, isAdmin]);
+  }, [selectedGenerationProvider]);
+
+  // New useEffect for Embedding Models
+  useEffect(() => {
+    if (selectedEmbeddingProvider) {
+      loadEmbeddingModels();
+    }
+  }, [selectedEmbeddingProvider]);
 
   const loadApiKeys = async () => {
     setApiKeysLoading(true);
