@@ -41,15 +41,17 @@ serve(async (req) => {
       console.log("No auth header, continuing as anonymous");
     }
     
+    const requestBody = await req.json();
     const { 
       message, 
       conversationId, 
       embeddingModel = 'text-embedding-3-large',
       generationProvider = 'openrouter',
-      generationModel = 'openai/gpt-4o'  // This should come from config
-    } = await req.json()
+      generationModel = 'openai/gpt-4o'
+    } = requestBody;
     
-    console.log("Request body:", { message, conversationId, embeddingModel, generationProvider, generationModel });
+    console.log("Request body:", requestBody);
+    console.log("Parsed parameters:", { message, conversationId, embeddingModel, generationProvider, generationModel });
     
     // Get conversation history
     const { data: messages, error: messagesError } = await supabaseClient

@@ -38,7 +38,7 @@ export const useChat = () => {
             config.generation = {
               provider: item.provider || 'openrouter',
               model: item.model || 'openai/gpt-4o',
-              temperature: item.temperature || 0.7,
+              temperature: item.temperature !== null ? item.temperature : 0.7,
               maxTokens: item.max_tokens || 2048
             };
           } else if (item.type === 'embedding') {
@@ -110,6 +110,8 @@ export const useChat = () => {
       
       // Call chat edge function with streaming
       console.log("Calling chat function with conversation ID:", conversationId);
+      console.log("Using model config:", modelConfig);
+      
       const response = await fetch('https://jmxemujffofqpqrxajlb.supabase.co/functions/v1/chat', {
         method: 'POST',
         headers: {
