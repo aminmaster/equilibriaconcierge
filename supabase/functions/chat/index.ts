@@ -244,6 +244,7 @@ serve(async (req) => {
     }
     
     console.log("Generation API response status:", apiResponse?.status);
+    console.log("Using provider:", generationProvider, "with model:", generationModel);
     
     if (!apiResponse?.ok) {
       const errorText = await apiResponse?.text();

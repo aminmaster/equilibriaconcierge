@@ -36,7 +36,7 @@ const DEFAULT_PROVIDER_MODELS = {
     "anthropic/claude-3-opus",
     "anthropic/claude-3-sonnet",
     "google/gemini-pro",
-    "x-ai/grok-beta"  // Added xAI Grok model
+    "x-ai/grok-beta"
   ],
   openai: [
     "gpt-4o",
@@ -99,6 +99,7 @@ export function ModelConfigTab() {
   const [loadingEmbeddingModels, setLoadingEmbeddingModels] = useState(false);
   const [loadingProviders, setLoadingProviders] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
 
   // Load available providers based on saved API keys
   const loadAvailableProviders = async () => {
@@ -115,41 +116,7 @@ export function ModelConfigTab() {
       const providers = [...new Set(data.map((key: any) => key.provider))];
       setAvailableProviders(providers);
       
-      // If we have providers, set the first one as default if current provider isn't available
-      if (providers.length > 0) {
-        // For generation config
-        if (!providers.includes(generationConfig.provider)) {
-          const newProvider = providers[0];
-          setGenerationConfig(prev => ({
-            ...prev,
-            provider: newProvider,
-            model: DEFAULT_PROVIDER_MODELS[newProvider as keyof typeof DEFAULT_PROVIDER_MODELS]?.[0] || ""
-          }));
-          
-          // Load models for the new provider
-          if (activeTab === "generation") {
-            loadGenerationModelsForProvider(newProvider);
-          }
-        }
-        
-        // For embedding config
-        if (!providers.includes(embeddingConfig.provider)) {
-          const newProvider = providers.includes("openai") ? "openai" : providers[0];
-          setEmbeddingConfig(prev => ({
-            ...prev,
-            provider: newProvider,
-            model: DEFAULT_EMBEDDING_MODELS[newProvider as keyof typeof DEFAULT_EMBEDDING_MODELS]?.[0]?.model || 
-                   DEFAULT_EMBEDDING_MODELS.openai?.[0]?.model || "",
-            dimensions: DEFAULT_EMBEDDING_MODELS[newProvider as keyof typeof DEFAULT_EMBEDDING_MODELS]?.[0]?.dimensions || 
-                        DEFAULT_EMBEDDING_MODELS.openai?.[0]?.dimensions || 1536
-          }));
-          
-          // Load models for the new provider
-          if (activeTab === "embedding") {
-            loadEmbeddingModelsForProvider(newProvider);
-          }
-        }
-      }
+      return providers;
     } catch (error: any) {
       console.error("Error loading providers:", error);
       toast({
@@ -157,6 +124,7 @@ export function ModelConfigTab() {
         description: error.message || "Could not load available providers.",
         variant: "destructive",
       });
+      return [];
     } finally {
       setLoadingProviders(false);
     }
@@ -176,9 +144,14 @@ export function ModelConfigTab() {
         setGenerationConfig({
           provider: generationData.provider || "openrouter",
           model: generationData.model || "openai/gpt-4o",
-          temperature: generationData.temperature || 0.7,
+          temperature: generationData.temperature !== null ? generationData.temperature : 0.7,
           maxTokens: generationData.max_tokens || 2048,
         });
+        
+        // Load models for the saved provider
+        if (generationData.provider) {
+          await loadGenerationModelsForProvider(generationData.provider);
+        }
       }
       
       // Load embedding config
@@ -194,6 +167,11 @@ export function ModelConfigTab() {
           model: embeddingData.model || "text-embedding-3-large",
           dimensions: embeddingData.dimensions || 3072,
         });
+        
+        // Load models for the saved provider
+        if (embeddingData.provider) {
+          await loadEmbeddingModelsForProvider(embeddingData.provider);
+        }
       }
     } catch (error: any) {
       console.error("Error loading model configurations:", error);
@@ -202,8 +180,19 @@ export function ModelConfigTab() {
 
   // Load available providers and configurations on component mount
   useEffect(() => {
-    loadAvailableProviders();
-    loadModelConfigurations();
+    const initialize = async () => {
+      const providers = await loadAvailableProviders();
+      await loadModelConfigurations();
+      
+      // If we have providers, load models for the current generation provider
+      if (providers.length > 0 && generationConfig.provider) {
+        await loadGenerationModelsForProvider(generationConfig.provider);
+      }
+      
+      setInitialLoad(false);
+    };
+    
+    initialize();
   }, []);
 
   // Load generation models when provider changes
@@ -215,17 +204,8 @@ export function ModelConfigTab() {
       } else if (provider === "openrouter") {
         await fetchOpenRouterModels();
       } else if (provider === "xai") {
-        // For xAI, use default models since we can't fetch them dynamically
         setGenerationModels(DEFAULT_PROVIDER_MODELS.xai);
-        // Set default model if current one isn't available
-        if (!DEFAULT_PROVIDER_MODELS.xai.includes(generationConfig.model)) {
-          setGenerationConfig(prev => ({
-            ...prev,
-            model: DEFAULT_PROVIDER_MODELS.xai[0]
-          }));
-        }
       } else {
-        // For other providers, use default models
         setGenerationModels(
           DEFAULT_PROVIDER_MODELS[provider as keyof typeof DEFAULT_PROVIDER_MODELS] || 
           DEFAULT_PROVIDER_MODELS.openrouter
@@ -233,7 +213,6 @@ export function ModelConfigTab() {
       }
     } catch (error: any) {
       console.error(`Error loading generation models for ${provider}:`, error);
-      // Fallback to default models
       setGenerationModels(
         DEFAULT_PROVIDER_MODELS[provider as keyof typeof DEFAULT_PROVIDER_MODELS] || 
         DEFAULT_PROVIDER_MODELS.openrouter
@@ -250,18 +229,8 @@ export function ModelConfigTab() {
       if (provider === "openai") {
         await fetchOpenAIEmbeddingModels();
       } else if (provider === "openrouter") {
-        // For OpenRouter, we use OpenAI embedding models since OpenRouter provides access to them
         setEmbeddingModels(DEFAULT_EMBEDDING_MODELS.openrouter);
-        // Set default model if current one isn't available
-        if (!DEFAULT_EMBEDDING_MODELS.openrouter.some(m => m.model === embeddingConfig.model)) {
-          setEmbeddingConfig(prev => ({
-            ...prev,
-            model: DEFAULT_EMBEDDING_MODELS.openrouter[0].model,
-            dimensions: DEFAULT_EMBEDDING_MODELS.openrouter[0].dimensions
-          }));
-        }
       } else {
-        // For other providers, use default embedding models
         setEmbeddingModels(
           DEFAULT_EMBEDDING_MODELS[provider as keyof typeof DEFAULT_EMBEDDING_MODELS] || 
           DEFAULT_EMBEDDING_MODELS.openai
@@ -269,7 +238,6 @@ export function ModelConfigTab() {
       }
     } catch (error: any) {
       console.error(`Error loading embedding models for ${provider}:`, error);
-      // Fallback to default models
       setEmbeddingModels(
         DEFAULT_EMBEDDING_MODELS[provider as keyof typeof DEFAULT_EMBEDDING_MODELS] || 
         DEFAULT_EMBEDDING_MODELS.openai
@@ -289,7 +257,6 @@ export function ModelConfigTab() {
 
     if (error) throw error;
     if (!data) {
-      // Use default models if no API key
       setGenerationModels(DEFAULT_PROVIDER_MODELS.openai);
       return;
     }
@@ -303,14 +270,13 @@ export function ModelConfigTab() {
     });
 
     if (!response.ok) {
-      // Use default models if API call fails
       setGenerationModels(DEFAULT_PROVIDER_MODELS.openai);
       return;
     }
 
     const result = await response.json();
     
-    // Filter for chat completion models (excluding embeddings, etc.)
+    // Filter for chat completion models
     const chatModels = result.data
       .filter((model: any) => 
         model.id.includes('gpt') && 
@@ -324,13 +290,6 @@ export function ModelConfigTab() {
     
     if (chatModels.length > 0) {
       setGenerationModels(chatModels);
-      // Update selected model if current one isn't available
-      if (!chatModels.includes(generationConfig.model)) {
-        setGenerationConfig(prev => ({
-          ...prev,
-          model: chatModels[0]
-        }));
-      }
     } else {
       setGenerationModels(DEFAULT_PROVIDER_MODELS.openai);
     }
@@ -346,7 +305,6 @@ export function ModelConfigTab() {
 
     if (error) throw error;
     if (!data) {
-      // Use default models if no API key
       setEmbeddingModels(DEFAULT_EMBEDDING_MODELS.openai);
       return;
     }
@@ -360,7 +318,6 @@ export function ModelConfigTab() {
     });
 
     if (!response.ok) {
-      // Use default models if API call fails
       setEmbeddingModels(DEFAULT_EMBEDDING_MODELS.openai);
       return;
     }
@@ -371,8 +328,7 @@ export function ModelConfigTab() {
     const embeddingModels = result.data
       .filter((model: any) => model.id.includes('embedding'))
       .map((model: any) => {
-        // Map known models to their dimensions
-        let dimensions = 1536; // default
+        let dimensions = 1536;
         if (model.id === "text-embedding-3-large") {
           dimensions = 3072;
         } else if (model.id === "text-embedding-3-small") {
@@ -386,15 +342,6 @@ export function ModelConfigTab() {
     
     if (embeddingModels.length > 0) {
       setEmbeddingModels(embeddingModels);
-      // Update selected model if current one isn't available
-      const currentModel = embeddingModels.find(m => m.model === embeddingConfig.model);
-      if (!currentModel) {
-        setEmbeddingConfig(prev => ({
-          ...prev,
-          model: embeddingModels[0].model,
-          dimensions: embeddingModels[0].dimensions
-        }));
-      }
     } else {
       setEmbeddingModels(DEFAULT_EMBEDDING_MODELS.openai);
     }
@@ -410,7 +357,6 @@ export function ModelConfigTab() {
 
     if (error) throw error;
     if (!data) {
-      // Use default models if no API key
       setGenerationModels(DEFAULT_PROVIDER_MODELS.openrouter);
       return;
     }
@@ -424,7 +370,6 @@ export function ModelConfigTab() {
     });
 
     if (!response.ok) {
-      // Use default models if API call fails
       setGenerationModels(DEFAULT_PROVIDER_MODELS.openrouter);
       return;
     }
@@ -438,13 +383,6 @@ export function ModelConfigTab() {
     
     if (models.length > 0) {
       setGenerationModels(models);
-      // Update selected model if current one isn't available
-      if (!models.includes(generationConfig.model)) {
-        setGenerationConfig(prev => ({
-          ...prev,
-          model: models[0]
-        }));
-      }
     } else {
       setGenerationModels(DEFAULT_PROVIDER_MODELS.openrouter);
     }
@@ -540,13 +478,14 @@ export function ModelConfigTab() {
 
   // Update embedding models when provider changes
   const handleEmbeddingProviderChange = (provider: string) => {
+    const defaultModel = DEFAULT_EMBEDDING_MODELS[provider as keyof typeof DEFAULT_EMBEDDING_MODELS]?.[0] || 
+                         DEFAULT_EMBEDDING_MODELS.openai?.[0];
+    
     setEmbeddingConfig(prev => ({
       ...prev,
       provider: provider,
-      model: DEFAULT_EMBEDDING_MODELS[provider as keyof typeof DEFAULT_EMBEDDING_MODELS]?.[0]?.model || 
-             DEFAULT_EMBEDDING_MODELS.openai?.[0]?.model || "",
-      dimensions: DEFAULT_EMBEDDING_MODELS[provider as keyof typeof DEFAULT_EMBEDDING_MODELS]?.[0]?.dimensions || 
-                  DEFAULT_EMBEDDING_MODELS.openai?.[0]?.dimensions || 1536
+      model: defaultModel?.model || "",
+      dimensions: defaultModel?.dimensions || 1536
     }));
     
     // Load models for the new provider
@@ -564,6 +503,17 @@ export function ModelConfigTab() {
       }));
     }
   };
+
+  // Auto-refresh models when tab changes
+  useEffect(() => {
+    if (!initialLoad) {
+      if (activeTab === "generation") {
+        loadGenerationModelsForProvider(generationConfig.provider);
+      } else {
+        loadEmbeddingModelsForProvider(embeddingConfig.provider);
+      }
+    }
+  }, [activeTab, initialLoad]);
 
   return (
     <Card>
