@@ -90,26 +90,31 @@ export const useChat = () => {
           }
           
           const chunk = decoder.decode(value);
-          // Parse SSE format if needed
-          if (chunk.startsWith('data: ')) {
-            const data = chunk.slice(6); // Remove 'data: ' prefix
-            if (data === '[DONE]') break;
-            
-            try {
-              const parsed = JSON.parse(data);
-              if (parsed.choices?.[0]?.delta?.content) {
-                const content = parsed.choices[0].delta.content;
-                aiResponse += content;
-                onChunk(content);
+          
+          // Handle SSE format
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6); // Remove 'data: ' prefix
+              if (data === '[DONE]') continue;
+              
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.choices?.[0]?.delta?.content) {
+                  const content = parsed.choices[0].delta.content;
+                  aiResponse += content;
+                  onChunk(content);
+                }
+              } catch (e) {
+                // If it's not valid JSON, treat it as plain text
+                aiResponse += data;
+                onChunk(data);
               }
-            } catch (e) {
-              // Handle non-JSON chunks
-              aiResponse += data;
-              onChunk(data);
+            } else if (line.trim() !== '') {
+              // Handle any other non-empty lines as plain text
+              aiResponse += line;
+              onChunk(line);
             }
-          } else {
-            aiResponse += chunk;
-            onChunk(chunk);
           }
         }
       } catch (streamError: any) {
