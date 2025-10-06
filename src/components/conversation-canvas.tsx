@@ -18,23 +18,25 @@ export function ConversationCanvas() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-2 border-b flex justify-between items-center">
-        <h2 className="text-sm font-semibold">Knowledge Graph</h2>
-        <div className="flex gap-1">
-          <Button 
-            size="sm" 
-            variant="outline" 
-            className="gap-1 h-7 text-xs px-2"
-            onClick={() => setShowShareModal(true)}
-            disabled={!currentConversation}
-          >
-            <Share className="h-3 w-3" />
-            Share
-          </Button>
-          <Button size="sm" variant="outline" className="gap-1 h-7 text-xs px-2">
-            <Download className="h-3 w-3" />
-            Export
-          </Button>
+      <div className="p-2 border-b sticky top-0 bg-background z-10">
+        <div className="flex justify-between items-center">
+          <h2 className="text-base font-semibold">Knowledge Graph</h2>
+          <div className="flex gap-1">
+            <Button 
+              size="sm" 
+              variant="outline" 
+              className="gap-1 h-7 text-xs px-2"
+              onClick={() => setShowShareModal(true)}
+              disabled={!currentConversation}
+            >
+              <Share className="h-3 w-3" />
+              Share
+            </Button>
+            <Button size="sm" variant="outline" className="gap-1 h-7 text-xs px-2">
+              <Download className="h-3 w-3" />
+              Export
+            </Button>
+          </div>
         </div>
       </div>
       
