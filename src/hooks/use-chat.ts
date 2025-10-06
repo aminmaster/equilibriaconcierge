@@ -8,6 +8,69 @@ export const useChat = () => {
   const abortControllerRef = useRef<AbortController | null>(null);
   const { currentConversation, addMessage, createConversation } = useConversations();
 
+  // Load model configuration
+  const loadModelConfiguration = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('model_configurations')
+        .select('*')
+        .in('type', ['generation', 'embedding']);
+      
+      if (error) throw error;
+      
+      const config: any = {
+        generation: {
+          provider: 'openrouter',
+          model: 'openai/gpt-4o',
+          temperature: 0.7,
+          maxTokens: 2048
+        },
+        embedding: {
+          provider: 'openai',
+          model: 'text-embedding-3-large',
+          dimensions: 3072
+        }
+      };
+      
+      if (data) {
+        data.forEach((item: any) => {
+          if (item.type === 'generation') {
+            config.generation = {
+              provider: item.provider || 'openrouter',
+              model: item.model || 'openai/gpt-4o',
+              temperature: item.temperature || 0.7,
+              maxTokens: item.max_tokens || 2048
+            };
+          } else if (item.type === 'embedding') {
+            config.embedding = {
+              provider: item.provider || 'openai',
+              model: item.model || 'text-embedding-3-large',
+              dimensions: item.dimensions || 3072
+            };
+          }
+        });
+      }
+      
+      return config;
+    } catch (error) {
+      console.error("Error loading model configuration:", error);
+      // Return default configuration
+      return {
+        generation: {
+          provider: 'openrouter',
+          model: 'openai/gpt-4o',
+          temperature: 0.7,
+          maxTokens: 2048
+        },
+        embedding: {
+          provider: 'openai',
+          model: 'text-embedding-3-large',
+          dimensions: 3072
+        }
+      };
+    }
+  };
+
   const streamMessage = async (content: string, onChunk: (chunk: string) => void) => {
     if (isLoading) return;
     
@@ -16,6 +79,9 @@ export const useChat = () => {
     abortControllerRef.current = new AbortController();
     
     try {
+      // Load model configuration
+      const modelConfig = await loadModelConfiguration();
+      
       // Create a new conversation if none exists
       let conversationId = currentConversation?.id;
       if (!conversationId) {
@@ -53,9 +119,9 @@ export const useChat = () => {
         body: JSON.stringify({
           message: content,
           conversationId: conversationId,
-          embeddingModel: 'text-embedding-3-large',
-          generationProvider: 'openrouter',
-          generationModel: 'openai/gpt-4o'
+          embeddingModel: modelConfig.embedding.model,
+          generationProvider: modelConfig.generation.provider,
+          generationModel: modelConfig.generation.model
         })
       });
       

@@ -35,7 +35,8 @@ const DEFAULT_PROVIDER_MODELS = {
     "openai/gpt-3.5-turbo",
     "anthropic/claude-3-opus",
     "anthropic/claude-3-sonnet",
-    "google/gemini-pro"
+    "google/gemini-pro",
+    "x-ai/grok-beta"  // Added xAI Grok model
   ],
   openai: [
     "gpt-4o",
@@ -48,6 +49,9 @@ const DEFAULT_PROVIDER_MODELS = {
     "claude-3-opus-20240229",
     "claude-3-sonnet-20240229",
     "claude-3-haiku-20240307"
+  ],
+  xai: [
+    "grok-beta"
   ]
 };
 
@@ -94,6 +98,7 @@ export function ModelConfigTab() {
   const [loadingGenerationModels, setLoadingGenerationModels] = useState(false);
   const [loadingEmbeddingModels, setLoadingEmbeddingModels] = useState(false);
   const [loadingProviders, setLoadingProviders] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   // Load available providers based on saved API keys
   const loadAvailableProviders = async () => {
@@ -157,9 +162,48 @@ export function ModelConfigTab() {
     }
   };
 
-  // Load available providers on component mount
+  // Load model configurations from database
+  const loadModelConfigurations = async () => {
+    try {
+      // Load generation config
+      const { data: generationData, error: generationError } = await supabase
+        .from('model_configurations')
+        .select('*')
+        .eq('type', 'generation')
+        .single();
+      
+      if (!generationError && generationData) {
+        setGenerationConfig({
+          provider: generationData.provider || "openrouter",
+          model: generationData.model || "openai/gpt-4o",
+          temperature: generationData.temperature || 0.7,
+          maxTokens: generationData.max_tokens || 2048,
+        });
+      }
+      
+      // Load embedding config
+      const { data: embeddingData, error: embeddingError } = await supabase
+        .from('model_configurations')
+        .select('*')
+        .eq('type', 'embedding')
+        .single();
+      
+      if (!embeddingError && embeddingData) {
+        setEmbeddingConfig({
+          provider: embeddingData.provider || "openai",
+          model: embeddingData.model || "text-embedding-3-large",
+          dimensions: embeddingData.dimensions || 3072,
+        });
+      }
+    } catch (error: any) {
+      console.error("Error loading model configurations:", error);
+    }
+  };
+
+  // Load available providers and configurations on component mount
   useEffect(() => {
     loadAvailableProviders();
+    loadModelConfigurations();
   }, []);
 
   // Load generation models when provider changes
@@ -170,6 +214,16 @@ export function ModelConfigTab() {
         await fetchOpenAIModels();
       } else if (provider === "openrouter") {
         await fetchOpenRouterModels();
+      } else if (provider === "xai") {
+        // For xAI, use default models since we can't fetch them dynamically
+        setGenerationModels(DEFAULT_PROVIDER_MODELS.xai);
+        // Set default model if current one isn't available
+        if (!DEFAULT_PROVIDER_MODELS.xai.includes(generationConfig.model)) {
+          setGenerationConfig(prev => ({
+            ...prev,
+            model: DEFAULT_PROVIDER_MODELS.xai[0]
+          }));
+        }
       } else {
         // For other providers, use default models
         setGenerationModels(
@@ -396,12 +450,56 @@ export function ModelConfigTab() {
     }
   };
 
-  const handleSave = () => {
-    // In a real implementation, this would save to the database
-    toast({
-      title: "Configuration Saved",
-      description: "Model configuration has been updated successfully.",
-    });
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      // Save generation configuration
+      const { error: generationError } = await supabase
+        .from('model_configurations')
+        .upsert({
+          id: 'generation-config',
+          type: 'generation',
+          provider: generationConfig.provider,
+          model: generationConfig.model,
+          temperature: generationConfig.temperature,
+          max_tokens: generationConfig.maxTokens,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'id'
+        });
+      
+      if (generationError) throw generationError;
+      
+      // Save embedding configuration
+      const { error: embeddingError } = await supabase
+        .from('model_configurations')
+        .upsert({
+          id: 'embedding-config',
+          type: 'embedding',
+          provider: embeddingConfig.provider,
+          model: embeddingConfig.model,
+          dimensions: embeddingConfig.dimensions,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'id'
+        });
+      
+      if (embeddingError) throw embeddingError;
+      
+      toast({
+        title: "Configuration Saved",
+        description: "Model configuration has been updated successfully.",
+      });
+    } catch (error: any) {
+      console.error("Error saving model configuration:", error);
+      toast({
+        title: "Save Failed",
+        description: error.message || "Failed to save model configuration.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleReset = () => {
@@ -704,9 +802,18 @@ export function ModelConfigTab() {
             <RotateCcw className="h-4 w-4" />
             Reset Defaults
           </Button>
-          <Button onClick={handleSave} className="gap-2">
-            <Save className="h-4 w-4" />
-            Save Configuration
+          <Button onClick={handleSave} className="gap-2" disabled={saving}>
+            {saving ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4" />
+                Save Configuration
+              </>
+            )}
           </Button>
         </div>
         

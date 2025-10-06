@@ -46,7 +46,7 @@ serve(async (req) => {
       conversationId, 
       embeddingModel = 'text-embedding-3-large',
       generationProvider = 'openrouter',
-      generationModel = 'openai/gpt-4o'
+      generationModel = 'openai/gpt-4o'  // This should come from config
     } = await req.json()
     
     console.log("Request body:", { message, conversationId, embeddingModel, generationProvider, generationModel });
@@ -207,6 +207,20 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           model: generationModel,
+          messages: allMessages,
+          stream: true
+        })
+      })
+    } else if (generationProvider === 'xai') {
+      // Handle xAI specifically
+      apiResponse = await fetch('https://api.x.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${generationKeyData.api_key}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: generationModel,  // This should be 'grok-beta' or similar
           messages: allMessages,
           stream: true
         })
