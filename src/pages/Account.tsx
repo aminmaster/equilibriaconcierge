@@ -39,13 +39,16 @@ import {
   Bell, 
   Trash2,
   Chrome,
-  Github
+  Github,
+  Settings
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 export default function Account() {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
   const [loading, setLoading] = useState(true);
@@ -226,9 +229,21 @@ export default function Account() {
               Manage your profile, preferences, and security settings
             </p>
           </div>
-          <Button variant="outline" onClick={handleSignOut}>
-            Sign Out
-          </Button>
+          <div className="flex gap-2">
+            {user?.role === 'admin' && (
+              <Button 
+                variant="outline" 
+                onClick={() => navigate('/admin')}
+                className="gap-2"
+              >
+                <Settings className="h-4 w-4" />
+                Admin Panel
+              </Button>
+            )}
+            <Button variant="outline" onClick={handleSignOut}>
+              Sign Out
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">

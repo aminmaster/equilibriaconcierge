@@ -15,17 +15,20 @@ import {
   Database, 
   Key, 
   Settings,
-  Bug
+  Bug,
+  LogOut
 } from "lucide-react";
 import { KnowledgeBaseTab } from "@/components/admin/KnowledgeBaseTab";
 import { ApiKeysTab } from "@/components/admin/ApiKeysTab";
 import { ModelConfigTab } from "@/components/admin/ModelConfigTab";
 import { AdminAccessCheck } from "@/components/admin/AdminAccessCheck";
 import { TestApiKey } from "@/components/admin/TestApiKey";
+import { useNavigate } from "react-router-dom";
 
 export default function Admin() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("knowledge");
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -39,6 +42,23 @@ export default function Admin() {
     
     checkAdmin();
   }, [user]);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast({
+        title: "Signed out",
+        description: "You have been successfully signed out.",
+      });
+      navigate("/");
+    } catch (error: any) {
+      toast({
+        title: "Sign out failed",
+        description: error.message || "Failed to sign out.",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Show loading state while checking auth
   if (authLoading) {
@@ -78,11 +98,21 @@ export default function Admin() {
   return (
     <div className="min-h-screen py-8">
       <div className="max-w-6xl mx-auto px-4">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <p className="text-muted-foreground">
-            Manage knowledge bases, API keys, and system configuration
-          </p>
+        <div className="mb-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+            <p className="text-muted-foreground">
+              Manage knowledge bases, API keys, and system configuration
+            </p>
+          </div>
+          <Button 
+            variant="outline" 
+            onClick={handleSignOut}
+            className="gap-2"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign Out
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
