@@ -56,8 +56,8 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
   }, [message]);
 
   return (
-    <div className="fixed bottom-2 left-0 right-0 bg-background/80 backdrop-blur-xl border-t">
-      <div className="max-w-4xl mx-auto p-4">
+    <div className="bg-background/80 backdrop-blur-xl border-t">
+      <div className="p-4">
         {/* Glassmorphism panel */}
         <div className="relative rounded-2xl bg-background/50 border shadow-lg p-4">
           {inputMode === "text" ? (

@@ -4,7 +4,7 @@ import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { ConciergeInterface } from "@/components/concierge-interface";
 import { ConversationLog } from "@/components/conversation-log";
 import { ConversationCanvas } from "@/components/conversation-canvas";
-import { useAuth } from "@/hooks/use-auth.tsx"; // Updated import
+import { useAuth } from "@/hooks/use-auth.tsx";
 import { useAnonymousSession } from "@/hooks/use-anonymous-session";
 
 export default function Concierge() {
@@ -36,14 +36,22 @@ export default function Concierge() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex-1 overflow-hidden pb-20"> {/* Added padding to prevent overlap */}
+      <div className="flex-1 overflow-hidden">
         <PanelGroup direction="horizontal">
           <Panel 
             defaultSize={defaultLayout[0]} 
             minSize={20}
-            className="relative"
+            className="relative flex flex-col"
           >
-            <ConversationLog />
+            <div className="flex-1 overflow-hidden">
+              <ConversationLog />
+            </div>
+            <div className="shrink-0">
+              <ConciergeInterface 
+                inputMode={inputMode}
+                setInputMode={setInputMode}
+              />
+            </div>
           </Panel>
           
           <PanelResizeHandle className="w-2 bg-border/30 hover:bg-border transition-colors" />
@@ -56,13 +64,6 @@ export default function Concierge() {
             <ConversationCanvas />
           </Panel>
         </PanelGroup>
-      </div>
-      
-      <div className="pb-2"> {/* Reduced padding since input bar is now lower */}
-        <ConciergeInterface 
-          inputMode={inputMode}
-          setInputMode={setInputMode}
-        />
       </div>
     </div>
   );
