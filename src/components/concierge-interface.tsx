@@ -67,7 +67,7 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Ask me anything..."
-                className="min-h-[60px] flex-1 resize-none shadow-sm"
+                className="min-h-[48px] flex-1 resize-none shadow-sm"
                 disabled={isLoading}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
@@ -78,18 +78,6 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
               />
               
               <div className="flex gap-2">
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="outline"
-                  onClick={() => setInputMode("voice")}
-                  className="h-12 w-12"
-                  aria-label="Switch to voice input"
-                  disabled={isLoading}
-                >
-                  <Mic className="h-5 w-5" />
-                </Button>
-                
                 {isLoading ? (
                   <Button
                     type="button"
@@ -102,15 +90,29 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
                     <Square className="h-5 w-5" />
                   </Button>
                 ) : (
-                  <Button
-                    type="submit"
-                    size="icon"
-                    className="h-12 w-12"
-                    disabled={!message.trim() || isLoading}
-                    aria-label="Send message"
-                  >
-                    <Send className="h-5 w-5" />
-                  </Button>
+                  <>
+                    <Button
+                      type="submit"
+                      size="icon"
+                      className="h-12 w-12"
+                      disabled={!message.trim() || isLoading}
+                      aria-label="Send message"
+                      variant={message.trim() ? "default" : "outline"}
+                    >
+                      <Send className="h-5 w-5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      onClick={() => setInputMode("voice")}
+                      className="h-12 w-12"
+                      aria-label="Switch to voice input"
+                      disabled={isLoading}
+                    >
+                      <Mic className="h-5 w-5" />
+                    </Button>
+                  </>
                 )}
               </div>
             </form>
