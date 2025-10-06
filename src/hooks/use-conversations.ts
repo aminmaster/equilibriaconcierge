@@ -85,94 +85,6 @@ export const useConversations = () => {
     }
   }, [user, sessionId, isAnonymous]);
 
-  // Set up real-time subscription for conversations
-  useEffect(() => {
-    if (!user && !(sessionId && isAnonymous)) return;
-    
-    // Subscribe to conversation changes
-    const conversationChannel = supabase
-      .channel('conversation-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'conversations',
-        },
-        (payload) => {
-          const newConversation = { ...payload.new, messages: [] };
-          setConversations(prev => [newConversation, ...prev]);
-          if (!currentConversation) {
-            setCurrentConversation(newConversation);
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'conversations',
-        },
-        (payload) => {
-          setConversations(prev => 
-            prev.map(conv => 
-              conv.id === payload.new.id ? { ...conv, ...payload.new } : conv
-            )
-          );
-        }
-      )
-      .subscribe();
-
-    // Subscribe to message changes
-    const messageChannel = supabase
-      .channel('message-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-        },
-        (payload) => {
-          const newMessage = payload.new;
-          
-          // Update conversations state
-          setConversations(prev => 
-            prev.map(conv => 
-              conv.id === newMessage.conversation_id 
-                ? { 
-                    ...conv, 
-                    messages: [...conv.messages, newMessage].sort((a, b) => 
-                      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-                    ),
-                    updated_at: new Date().toISOString()
-                  } 
-                : conv
-            )
-          );
-          
-          // Update current conversation if it's the one we're adding to
-          if (currentConversation && currentConversation.id === newMessage.conversation_id) {
-            setCurrentConversation(prev => ({
-              ...prev!,
-              messages: [...prev!.messages, newMessage].sort((a, b) => 
-                new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-              ),
-              updated_at: new Date().toISOString()
-            }));
-          }
-        }
-      )
-      .subscribe();
-
-    // Cleanup subscriptions
-    return () => {
-      supabase.removeChannel(conversationChannel);
-      supabase.removeChannel(messageChannel);
-    };
-  }, [user, sessionId, isAnonymous, currentConversation]);
-
   // Create a new conversation
   const createConversation = async (title: string) => {
     try {
@@ -222,7 +134,28 @@ export const useConversations = () => {
         .single();
       
       if (!error && data) {
-        // The real-time subscription will handle updating the state
+        // Update the conversation in state immediately
+        setConversations(prev => 
+          prev.map(conv => 
+            conv.id === conversationId 
+              ? { 
+                  ...conv, 
+                  messages: [...conv.messages, data],
+                  updated_at: new Date().toISOString()
+                } 
+              : conv
+          )
+        );
+        
+        // Update current conversation if it's the one we're adding to
+        if (currentConversation && currentConversation.id === conversationId) {
+          setCurrentConversation({
+            ...currentConversation,
+            messages: [...currentConversation.messages, data],
+            updated_at: new Date().toISOString()
+          });
+        }
+        
         return data;
       } else if (error) {
         throw new Error(error.message);
