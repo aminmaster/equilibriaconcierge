@@ -29,7 +29,7 @@ export function ConversationLog() {
   if (loading) {
     return (
       <div className="h-full flex flex-col">
-        <div className="p-2 border-b bg-background z-10">
+        <div className="p-3 border-b">
           <div className="h-5 w-32 bg-gray-200 rounded animate-pulse"></div>
         </div>
         <div className="flex-1 p-3 space-y-3">
@@ -46,14 +46,14 @@ export function ConversationLog() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-2 border-b bg-background z-10">
-        <h2 className="text-base font-semibold">Conversation</h2>
+      <div className="p-3 border-b">
+        <h2 className="text-lg font-semibold">Conversation</h2>
         <p className="text-xs text-muted-foreground">
           {currentConversation?.messages.length || 0} messages
         </p>
       </div>
       
-      <ScrollArea className="flex-1 p-3 pb-20">
+      <ScrollArea className="flex-1 p-3">
         {!currentConversation || currentConversation.messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-4">
             <div className="bg-muted rounded-full p-3 mb-3">
@@ -65,7 +65,7 @@ export function ConversationLog() {
             </p>
           </div>
         ) : (
-          <div className="space-y-4 pb-4">
+          <div className="space-y-4 pb-3">
             {currentConversation.messages.map((message) => (
               <div 
                 key={message.id} 
