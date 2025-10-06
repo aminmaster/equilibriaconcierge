@@ -58,6 +58,11 @@ const DEFAULT_EMBEDDING_MODELS = {
     "text-embedding-3-large",
     "text-embedding-3-small",
     "text-embedding-ada-002"
+  ],
+  openrouter: [
+    "openai/text-embedding-3-large",
+    "openai/text-embedding-3-small",
+    "openai/text-embedding-ada-002"
   ]
 };
 
@@ -173,6 +178,8 @@ export function ModelConfigTab() {
     try {
       if (provider === "openai") {
         await fetchOpenAIEmbeddingModels();
+      } else if (provider === "openrouter") {
+        await fetchOpenRouterEmbeddingModels();
       } else {
         // For other providers, use default embedding models
         setEmbeddingModels(
@@ -350,6 +357,58 @@ export function ModelConfigTab() {
     }
   };
 
+  const fetchOpenRouterEmbeddingModels = async () => {
+    // Get OpenRouter API key from database
+    const { data, error } = await supabase
+      .from('api_keys')
+      .select('api_key')
+      .eq('provider', 'openrouter')
+      .single();
+
+    if (error) throw error;
+    if (!data) {
+      // Use default models if no API key
+      setEmbeddingModels(DEFAULT_EMBEDDING_MODELS.openrouter);
+      return;
+    }
+
+    // Fetch models from OpenRouter API
+    const response = await fetch('https://openrouter.ai/api/v1/models', {
+      headers: {
+        'Authorization': `Bearer ${data.api_key}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      // Use default models if API call fails
+      setEmbeddingModels(DEFAULT_EMBEDDING_MODELS.openrouter);
+      return;
+    }
+
+    const result = await response.json();
+    
+    // Filter for embedding models (models that contain 'embedding')
+    const embeddingModels = result.data
+      .filter((model: any) => model.id.includes('embedding'))
+      .map((model: any) => model.id)
+      .sort();
+    
+    if (embeddingModels.length > 0) {
+      setEmbeddingModels(embeddingModels);
+      // Update selected model if current one isn't available
+      if (!embeddingModels.includes(config.embeddingModel)) {
+        setConfig(prev => ({
+          ...prev,
+          embeddingModel: embeddingModels[0]
+        }));
+      }
+    } else {
+      // If no embedding models found, use default OpenAI embedding models
+      setEmbeddingModels(DEFAULT_EMBEDDING_MODELS.openai);
+    }
+  };
+
   const handleSave = () => {
     // In a real implementation, this would save to the database
     toast({
@@ -438,7 +497,7 @@ export function ModelConfigTab() {
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <Label>Embedding Model</Label>
-              {config.embeddingProvider === "openai" && (
+              {(config.embeddingProvider === "openai" || config.embeddingProvider === "openrouter") && (
                 <Button 
                   variant="ghost" 
                   size="sm" 
