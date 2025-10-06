@@ -43,8 +43,8 @@ export function CommandCenter() {
     setIsClient(true);
   }, []);
 
-  // Show command center on most routes, hide only on specific fullscreen routes
-  const isFullScreenRoute = location.pathname === "/concierge";
+  // Show command center on all routes
+  const isFullScreenRoute = location.pathname === "/fullscreen";
   
   if (isFullScreenRoute) {
     return null;
@@ -85,7 +85,7 @@ export function CommandCenter() {
 
   return (
     <>
-      <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
+      <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-50">
         <Button
           size="icon"
           className="w-16 h-16 rounded-full shadow-lg bg-primary hover:bg-primary/90 transition-all duration-300"
@@ -109,7 +109,7 @@ export function CommandCenter() {
               />
               
               <motion.div
-                className="absolute bottom-20 left-1/2 transform -translate-x-1/2 z-50"
+                className="absolute top-20 left-1/2 transform -translate-x-1/2 z-50"
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
