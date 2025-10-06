@@ -35,38 +35,32 @@ export default function Concierge() {
   }, [user, sessionId, isAnonymous]);
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex-1 overflow-hidden">
-        <PanelGroup direction="horizontal" className="h-full">
-          <Panel 
-            defaultSize={defaultLayout[0]} 
-            minSize={20}
-            className="flex flex-col"
-          >
-            <div className="flex-1 min-h-0 flex flex-col">
+    <div className="h-screen flex flex-col">
+      <PanelGroup direction="horizontal" className="flex-1">
+        <Panel defaultSize={defaultLayout[0]} minSize={20}>
+          <div className="h-full flex flex-col">
+            <div className="flex-1 min-h-0">
               <ConversationLog />
             </div>
-            <div className="shrink-0">
+            <div className="shrink-0 border-t">
               <ConciergeInterface 
                 inputMode={inputMode}
                 setInputMode={setInputMode}
               />
             </div>
-          </Panel>
-          
-          <PanelResizeHandle className="w-1 bg-border/30 hover:bg-border transition-colors" />
-          
-          <Panel 
-            defaultSize={defaultLayout[1]} 
-            minSize={20}
-            className="flex flex-col"
-          >
-            <div className="flex-1 min-h-0 flex flex-col">
+          </div>
+        </Panel>
+        
+        <PanelResizeHandle className="w-1 bg-border/30 hover:bg-border transition-colors" />
+        
+        <Panel defaultSize={defaultLayout[1]} minSize={20}>
+          <div className="h-full flex flex-col">
+            <div className="flex-1 min-h-0">
               <ConversationCanvas />
             </div>
-          </Panel>
-        </PanelGroup>
-      </div>
+          </div>
+        </Panel>
+      </PanelGroup>
     </div>
   );
 }
