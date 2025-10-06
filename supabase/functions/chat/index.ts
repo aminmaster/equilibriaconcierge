@@ -23,29 +23,23 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization')
     console.log("Auth header present:", !!authHeader);
     
-    if (!authHeader) {
-      console.log("No authorization header found");
-      return new Response('Unauthorized', { 
-        status: 401, 
-        headers: corsHeaders 
-      })
+    // We still try to get the user, but don't require authentication
+    let userId = null;
+    if (authHeader) {
+      const token = authHeader.replace('Bearer ', '')
+      console.log("Token extracted from header");
+      
+      const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token)
+      
+      if (!userError && user) {
+        console.log("User verified:", user.id);
+        userId = user.id;
+      } else {
+        console.log("Failed to verify user, continuing as anonymous");
+      }
+    } else {
+      console.log("No auth header, continuing as anonymous");
     }
-    
-    // Verify the token
-    const token = authHeader.replace('Bearer ', '')
-    console.log("Token extracted from header");
-    
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token)
-    
-    if (userError || !user) {
-      console.log("Failed to verify user:", userError?.message || "No user found");
-      return new Response('Unauthorized', { 
-        status: 401, 
-        headers: corsHeaders 
-      })
-    }
-    
-    console.log("User verified:", user.id);
     
     const { 
       message, 
