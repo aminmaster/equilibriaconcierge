@@ -77,63 +77,75 @@ serve(async (req) => {
     console.log("Embedding key error:", embeddingKeyError);
     
     if (embeddingKeyError || !embeddingKeyData) {
-      throw new Error('OpenAI API key not configured for embeddings')
+      console.warn('OpenAI API key not configured for embeddings, proceeding without knowledge base');
+      // Continue without knowledge base if no API key
     }
     
-    // Create embedding for the query
-    const openaiResponse = await fetch('https://api.openai.com/v1/embeddings', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${embeddingKeyData.api_key}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        input: message,
-        model: embeddingModel
-      })
-    })
+    let context = "No relevant documents found in the knowledge base.";
     
-    console.log("OpenAI embeddings response status:", openaiResponse.status);
-    
-    if (!openaiResponse.ok) {
-      const errorText = await openaiResponse.text();
-      throw new Error(`OpenAI API error: ${openaiResponse.statusText} - ${errorText}`)
-    }
-    
-    const embeddingData = await openaiResponse.json()
-    const queryEmbedding = embeddingData.data[0].embedding
-    
-    // Search for relevant documents using the correct RPC function
-    console.log("Searching for documents with embedding");
-    const { data: documents, error: documentsError } = await supabaseClient
-      .rpc('match_documents', {
-        query_embedding: queryEmbedding,
-        match_threshold: 0.78,
-        match_count: 5
-      })
-    
-    console.log("Documents found:", documents?.length || 0);
-    console.log("Documents error:", documentsError);
-    
-    if (documentsError) {
-      console.error("Document search error:", documentsError);
-      throw new Error(`Failed to search documents: ${documentsError.message}`)
-    }
-    
-    // Construct context from retrieved documents
-    let context = "";
-    if (documents && documents.length > 0) {
-      context = documents.map((doc: any) => doc.content).join('\n\n')
-      console.log("Context constructed from documents, length:", context.length);
-    } else {
-      console.log("No relevant documents found");
-      context = "No relevant documents found in the knowledge base.";
+    // Only try to search knowledge base if we have an API key
+    if (embeddingKeyData) {
+      try {
+        // Create embedding for the query
+        const openaiResponse = await fetch('https://api.openai.com/v1/embeddings', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${embeddingKeyData.api_key}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            input: message,
+            model: embeddingModel
+          })
+        })
+        
+        console.log("OpenAI embeddings response status:", openaiResponse.status);
+        
+        if (!openaiResponse.ok) {
+          const errorText = await openaiResponse.text();
+          console.error("OpenAI API error:", errorText);
+          throw new Error(`OpenAI API error: ${openaiResponse.statusText} - ${errorText}`)
+        }
+        
+        const embeddingData = await openaiResponse.json()
+        const queryEmbedding = embeddingData.data[0].embedding
+        console.log("Query embedding generated, dimension:", queryEmbedding.length);
+        
+        // Search for relevant documents using the correct RPC function
+        console.log("Searching for documents with embedding");
+        const { data: documents, error: documentsError } = await supabaseClient
+          .rpc('match_documents', {
+            query_embedding: queryEmbedding,
+            match_threshold: 0.5, // Lower threshold for better matching
+            match_count: 5
+          })
+        
+        console.log("Documents found:", documents?.length || 0);
+        console.log("Documents error:", documentsError);
+        console.log("Documents data:", JSON.stringify(documents, null, 2));
+        
+        if (documentsError) {
+          console.error("Document search error:", documentsError);
+          // Don't throw error, just continue without context
+        }
+        
+        // Construct context from retrieved documents
+        if (documents && documents.length > 0) {
+          context = documents.map((doc: any) => doc.content).join('\n\n')
+          console.log("Context constructed from documents, length:", context.length);
+        } else {
+          console.log("No relevant documents found");
+        }
+      } catch (embeddingError) {
+        console.error("Error during embedding/document search:", embeddingError);
+        // Continue without context if embedding fails
+      }
     }
     
     // Prepare messages for the LLM
     const systemMessage = {
       role: 'system',
-      content: `You are a helpful AI assistant. Use the following context to answer the user's question. If the context doesn't contain relevant information, say so:\n\n${context}`
+      content: `You are a helpful AI assistant. Use the following context to answer the user's question. If the context doesn't contain relevant information, use your general knowledge:\n\n${context}`
     }
     
     const conversationMessages = messages.map((msg: any) => ({
@@ -147,6 +159,8 @@ serve(async (req) => {
     }
     
     const allMessages = [systemMessage, ...conversationMessages, userMessage]
+    
+    console.log("Messages sent to LLM:", JSON.stringify(allMessages, null, 2));
     
     // Get the referer from the request or use a default
     const referer = req.headers.get('Referer') || 'http://localhost:3000'
