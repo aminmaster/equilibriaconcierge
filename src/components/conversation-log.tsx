@@ -29,14 +29,14 @@ export function ConversationLog() {
   if (loading) {
     return (
       <div className="h-full flex flex-col">
-        <div className="p-3 border-b"> {/* Reduced padding */}
-          <div className="h-5 w-32 bg-gray-200 rounded animate-pulse"></div> {/* Reduced height */}
+        <div className="p-3 border-b">
+          <div className="h-5 w-32 bg-gray-200 rounded animate-pulse"></div>
         </div>
-        <div className="flex-1 p-3 space-y-3"> {/* Reduced padding and spacing */}
+        <div className="flex-1 p-3 space-y-3">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="space-y-1"> {/* Reduced spacing */}
-              <div className="h-3 w-3/4 bg-gray-200 rounded animate-pulse"></div> {/* Reduced height */}
-              <div className="h-3 w-1/2 bg-gray-200 rounded animate-pulse"></div> {/* Reduced height */}
+            <div key={i} className="space-y-1">
+              <div className="h-3 w-3/4 bg-gray-200 rounded animate-pulse"></div>
+              <div className="h-3 w-1/2 bg-gray-200 rounded animate-pulse"></div>
             </div>
           ))}
         </div>
@@ -46,42 +46,42 @@ export function ConversationLog() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-3 border-b"> {/* Reduced padding */}
-        <h2 className="text-lg font-semibold">Conversation</h2> {/* Reduced text size */}
-        <p className="text-xs text-muted-foreground"> {/* Reduced text size */}
+      <div className="p-3 border-b">
+        <h2 className="text-lg font-semibold">Conversation</h2>
+        <p className="text-xs text-muted-foreground">
           {currentConversation?.messages.length || 0} messages
         </p>
       </div>
       
-      <ScrollArea className="flex-1 p-3"> {/* Reduced padding */}
+      <ScrollArea className="flex-1 p-3">
         {!currentConversation || currentConversation.messages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center p-4"> {/* Reduced padding */}
-            <div className="bg-muted rounded-full p-3 mb-3"> {/* Reduced padding */}
-              <MessageCircle className="h-8 w-8 text-muted-foreground" /> {/* Reduced icon size */}
+          <div className="h-full flex flex-col items-center justify-center text-center p-4">
+            <div className="bg-muted rounded-full p-3 mb-3">
+              <MessageCircle className="h-8 w-8 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-semibold mb-1">No messages yet</h3> {/* Reduced text size */}
-            <p className="text-muted-foreground text-sm mb-3"> {/* Reduced text size */}
+            <h3 className="text-lg font-semibold mb-1">No messages yet</h3>
+            <p className="text-muted-foreground text-sm mb-3">
               Start a conversation by sending a message
             </p>
           </div>
         ) : (
-          <div className="space-y-4 pb-3"> {/* Reduced spacing and padding */}
+          <div className="space-y-4 pb-3">
             {currentConversation.messages.map((message) => (
               <div 
                 key={message.id} 
                 className={cn(
-                  "flex gap-2", // Reduced gap
+                  "flex gap-2",
                   message.role === "user" ? "justify-end" : "justify-start"
                 )}
               >
                 {message.role === "assistant" && (
-                  <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center"> {/* Reduced size */}
-                    <span className="text-[0.6rem] font-bold text-primary-foreground">AI</span> {/* Reduced text size */}
+                  <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                    <span className="text-[0.6rem] font-bold text-primary-foreground">AI</span>
                   </div>
                 )}
                 
                 <div className={cn(
-                  "max-w-[85%] rounded-xl px-3 py-2", // Reduced padding and border radius
+                  "max-w-[85%] rounded-xl px-3 py-2",
                   message.role === "user" 
                     ? "bg-primary text-primary-foreground rounded-tr-md" 
                     : "bg-muted rounded-tl-md"
@@ -89,15 +89,16 @@ export function ConversationLog() {
                   <MarkdownRenderer content={message.content} />
                   
                   {message.role === "assistant" && (
-                    <div className="flex items-center gap-0.5 mt-1"> {/* Reduced gap */}
+                    <div className="flex items-center gap-0.5 mt-1">
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-6 w-6" // Reduced button size
+                        className="h-6 w-6"
+                        onClick={() => handleFeedback(message.id, "up")}
                       >
                         <ThumbsUp 
                           className={cn(
-                            "h-3 w-3", // Reduced icon size
+                            "h-3 w-3",
                             feedback[message.id] === "up" && "text-green-500"
                           )} 
                         />
@@ -105,11 +106,12 @@ export function ConversationLog() {
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-6 w-6" // Reduced button size
+                        className="h-6 w-6"
+                        onClick={() => handleFeedback(message.id, "down")}
                       >
                         <ThumbsDown 
                           className={cn(
-                            "h-3 w-3", // Reduced icon size
+                            "h-3 w-3",
                             feedback[message.id] === "down" && "text-red-500"
                           )} 
                         />
@@ -117,31 +119,31 @@ export function ConversationLog() {
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-6 w-6" // Reduced button size
+                        className="h-6 w-6"
                       >
-                        <Star className="h-3 w-3" /> // Reduced icon size
+                        <Star className="h-3 w-3" />
                       </Button>
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-6 w-6" // Reduced button size
+                        className="h-6 w-6"
                       >
-                        <Edit className="h-3 w-3" /> // Reduced icon size
+                        <Edit className="h-3 w-3" />
                       </Button>
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-6 w-6" // Reduced button size
+                        className="h-6 w-6"
                       >
-                        <MoreHorizontal className="h-3 w-3" /> // Reduced icon size
+                        <MoreHorizontal className="h-3 w-3" />
                       </Button>
                     </div>
                   )}
                 </div>
                 
                 {message.role === "user" && (
-                  <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center"> {/* Reduced size */}
-                    <span className="text-[0.6rem] font-bold">U</span> {/* Reduced text size */}
+                  <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center">
+                    <span className="text-[0.6rem] font-bold">U</span>
                   </div>
                 )}
               </div>

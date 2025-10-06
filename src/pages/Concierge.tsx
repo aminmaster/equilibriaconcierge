@@ -46,7 +46,7 @@ export default function Concierge() {
             <div className="flex-1 overflow-hidden">
               <ConversationLog />
             </div>
-            <div className="shrink-0 border-t-0"> {/* Removed border since parent already has it */}
+            <div className="shrink-0 border-t-0">
               <ConciergeInterface 
                 inputMode={inputMode}
                 setInputMode={setInputMode}
@@ -54,7 +54,7 @@ export default function Concierge() {
             </div>
           </Panel>
           
-          <PanelResizeHandle className="w-1 bg-border/30 hover:bg-border transition-colors" /> {/* Reduced width */}
+          <PanelResizeHandle className="w-1 bg-border/30 hover:bg-border transition-colors" />
           
           <Panel 
             defaultSize={defaultLayout[1]} 
