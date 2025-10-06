@@ -36,7 +36,7 @@ export default function Concierge() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden pb-20"> {/* Added padding to prevent overlap */}
         <PanelGroup direction="horizontal">
           <Panel 
             defaultSize={defaultLayout[0]} 
@@ -58,7 +58,7 @@ export default function Concierge() {
         </PanelGroup>
       </div>
       
-      <div className="pb-24"> {/* Increased padding to prevent interface overlap */}
+      <div className="pb-2"> {/* Reduced padding since input bar is now lower */}
         <ConciergeInterface 
           inputMode={inputMode}
           setInputMode={setInputMode}

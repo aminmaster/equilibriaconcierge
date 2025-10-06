@@ -31,7 +31,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         )}>
           <main className={cn(
             "relative",
-            isFullScreenRoute ? "h-full" : "pb-20"
+            isFullScreenRoute ? "h-[calc(100vh-4rem)]" : "pb-20" // Adjust height to account for command center
           )}>
             {children}
           </main>
