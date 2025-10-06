@@ -28,6 +28,30 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
+// Define available providers and their models
+const PROVIDER_MODELS = {
+  openrouter: [
+    "openai/gpt-4o",
+    "openai/gpt-4-turbo",
+    "openai/gpt-3.5-turbo",
+    "anthropic/claude-3-opus",
+    "anthropic/claude-3-sonnet",
+    "google/gemini-pro"
+  ],
+  openai: [
+    "gpt-4o",
+    "gpt-4-turbo",
+    "gpt-4",
+    "gpt-3.5-turbo"
+  ],
+  anthropic: [
+    "claude-3-5-sonnet-20240620",
+    "claude-3-opus-20240229",
+    "claude-3-sonnet-20240229",
+    "claude-3-haiku-20240307"
+  ]
+};
+
 export function ModelConfigTab() {
   const { toast } = useToast();
   const [config, setConfig] = useState({
@@ -42,7 +66,48 @@ export function ModelConfigTab() {
     "text-embedding-3-small",
     "text-embedding-ada-002"
   ]);
+  const [availableProviders, setAvailableProviders] = useState<string[]>(["openrouter"]);
   const [loadingModels, setLoadingModels] = useState(false);
+  const [loadingProviders, setLoadingProviders] = useState(false);
+
+  // Load available providers based on saved API keys
+  useEffect(() => {
+    loadAvailableProviders();
+  }, []);
+
+  const loadAvailableProviders = async () => {
+    setLoadingProviders(true);
+    try {
+      // Get all API keys from database
+      const { data, error } = await supabase
+        .from('api_keys')
+        .select('provider');
+      
+      if (error) throw error;
+      
+      // Extract unique providers
+      const providers = [...new Set(data.map((key: any) => key.provider))];
+      setAvailableProviders(providers);
+      
+      // If current provider is not available, reset to first available
+      if (providers.length > 0 && !providers.includes(config.generationProvider)) {
+        setConfig(prev => ({
+          ...prev,
+          generationProvider: providers[0],
+          generationModel: PROVIDER_MODELS[providers[0] as keyof typeof PROVIDER_MODELS]?.[0] || ""
+        }));
+      }
+    } catch (error: any) {
+      console.error("Error loading providers:", error);
+      toast({
+        title: "Failed to Load Providers",
+        description: error.message || "Could not load available providers.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingProviders(false);
+    }
+  };
 
   // Fetch available embedding models from OpenAI
   const fetchEmbeddingModels = async () => {
@@ -134,8 +199,8 @@ export function ModelConfigTab() {
   const handleReset = () => {
     setConfig({
       embeddingModel: "text-embedding-3-large",
-      generationProvider: "openrouter",
-      generationModel: "openai/gpt-4o",
+      generationProvider: availableProviders[0] || "openrouter",
+      generationModel: PROVIDER_MODELS[availableProviders[0] as keyof typeof PROVIDER_MODELS]?.[0] || "openai/gpt-4o",
       temperature: 0.7,
       maxTokens: 2048,
     });
@@ -143,6 +208,15 @@ export function ModelConfigTab() {
       title: "Configuration Reset",
       description: "Model configuration has been reset to defaults.",
     });
+  };
+
+  // Update models when provider changes
+  const handleProviderChange = (provider: string) => {
+    setConfig(prev => ({
+      ...prev,
+      generationProvider: provider,
+      generationModel: PROVIDER_MODELS[provider as keyof typeof PROVIDER_MODELS]?.[0] || ""
+    }));
   };
 
   return (
@@ -195,17 +269,28 @@ export function ModelConfigTab() {
             <Label>Generation Provider</Label>
             <Select 
               value={config.generationProvider} 
-              onValueChange={(value) => setConfig({...config, generationProvider: value})}
+              onValueChange={handleProviderChange}
+              disabled={loadingProviders}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select generation provider" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="openrouter">OpenRouter</SelectItem>
-                <SelectItem value="openai">OpenAI</SelectItem>
-                <SelectItem value="anthropic">Anthropic</SelectItem>
+                {availableProviders.map((provider) => (
+                  <SelectItem key={provider} value={provider}>
+                    {provider.charAt(0).toUpperCase() + provider.slice(1)}
+                  </SelectItem>
+                ))}
+                {availableProviders.length === 0 && (
+                  <SelectItem value="openrouter" disabled>
+                    No providers available - add API keys first
+                  </SelectItem>
+                )}
               </SelectContent>
             </Select>
+            <p className="text-sm text-muted-foreground">
+              Provider used for generating responses
+            </p>
           </div>
           
           <div className="space-y-2">
@@ -213,17 +298,21 @@ export function ModelConfigTab() {
             <Select 
               value={config.generationModel} 
               onValueChange={(value) => setConfig({...config, generationModel: value})}
+              disabled={!PROVIDER_MODELS[config.generationProvider as keyof typeof PROVIDER_MODELS]}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select generation model" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="openai/gpt-4o">GPT-4o</SelectItem>
-                <SelectItem value="openai/gpt-4-turbo">GPT-4 Turbo</SelectItem>
-                <SelectItem value="openai/gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
-                <SelectItem value="anthropic/claude-3-opus">Claude 3 Opus</SelectItem>
-                <SelectItem value="anthropic/claude-3-sonnet">Claude 3 Sonnet</SelectItem>
-                <SelectItem value="google/gemini-pro">Gemini Pro</SelectItem>
+                {PROVIDER_MODELS[config.generationProvider as keyof typeof PROVIDER_MODELS]?.map((model) => (
+                  <SelectItem key={model} value={model}>
+                    {model}
+                  </SelectItem>
+                )) || (
+                  <SelectItem value="" disabled>
+                    No models available for this provider
+                  </SelectItem>
+                )}
               </SelectContent>
             </Select>
             <p className="text-sm text-muted-foreground">
@@ -278,15 +367,9 @@ export function ModelConfigTab() {
           <div className="flex items-start">
             <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
             <div>
-              <h4 className="text-sm font-medium text-yellow-800">Troubleshooting Tips</h4>
+              <h4 className="text-sm font-medium text-yellow-800">Provider Information</h4>
               <p className="text-sm text-yellow-700 mt-1">
-                If you're getting a 403 error:
-                <ul className="list-disc list-inside mt-1 space-y-1">
-                  <li>Verify your OpenAI API key has the correct permissions</li>
-                  <li>Check that your OpenAI account is in good standing</li>
-                  <li>Ensure the key hasn't expired or been revoked</li>
-                  <li>Some OpenAI API keys may not have access to the models endpoint</li>
-                </ul>
+                Only providers with saved API keys are shown above. Add API keys in the "API Keys" tab to enable additional providers.
               </p>
             </div>
           </div>
