@@ -157,8 +157,10 @@ async function processDocumentContent(supabaseClient: any, sourceId: string, con
     console.log("Processing chunk", i, "length:", chunk.length);
     
     // Generate embedding (this is a placeholder - in reality you'd call OpenAI API)
-    // For demo purposes, we'll create a mock embedding
-    const mockEmbedding = new Array(1536).fill(0).map(() => Math.random())
+    // For demo purposes, we'll create a mock embedding with the correct dimensions
+    // In a real implementation, we would get the dimensions from the model configuration
+    const dimensions = 3072; // This should come from the model configuration
+    const mockEmbedding = new Array(dimensions).fill(0).map(() => Math.random())
     
     // Store the document chunk with its embedding
     const { error: docError } = await supabaseClient

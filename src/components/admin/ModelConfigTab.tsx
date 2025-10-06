@@ -51,17 +51,17 @@ const DEFAULT_PROVIDER_MODELS = {
   ]
 };
 
-// Define default embedding models
+// Define default embedding models with their dimensions
 const DEFAULT_EMBEDDING_MODELS = {
   openai: [
-    "text-embedding-3-large",
-    "text-embedding-3-small",
-    "text-embedding-ada-002"
+    { model: "text-embedding-3-large", dimensions: 3072 },
+    { model: "text-embedding-3-small", dimensions: 1536 },
+    { model: "text-embedding-ada-002", dimensions: 1536 }
   ],
   openrouter: [
-    "openai/text-embedding-3-large",
-    "openai/text-embedding-3-small",
-    "openai/text-embedding-ada-002"
+    { model: "openai/text-embedding-3-large", dimensions: 3072 },
+    { model: "openai/text-embedding-3-small", dimensions: 1536 },
+    { model: "openai/text-embedding-ada-002", dimensions: 1536 }
   ]
 };
 
@@ -81,13 +81,14 @@ export function ModelConfigTab() {
   const [embeddingConfig, setEmbeddingConfig] = useState({
     provider: "openai",
     model: "text-embedding-3-large",
+    dimensions: 3072,
   });
   
   const [availableProviders, setAvailableProviders] = useState<string[]>([]);
   const [generationModels, setGenerationModels] = useState<string[]>(
     DEFAULT_PROVIDER_MODELS.openrouter
   );
-  const [embeddingModels, setEmbeddingModels] = useState<string[]>(
+  const [embeddingModels, setEmbeddingModels] = useState<Array<{model: string, dimensions: number}>>(
     DEFAULT_EMBEDDING_MODELS.openai
   );
   const [loadingGenerationModels, setLoadingGenerationModels] = useState(false);
@@ -132,8 +133,10 @@ export function ModelConfigTab() {
           setEmbeddingConfig(prev => ({
             ...prev,
             provider: newProvider,
-            model: DEFAULT_EMBEDDING_MODELS[newProvider as keyof typeof DEFAULT_EMBEDDING_MODELS]?.[0] || 
-                   DEFAULT_EMBEDDING_MODELS.openai?.[0] || ""
+            model: DEFAULT_EMBEDDING_MODELS[newProvider as keyof typeof DEFAULT_EMBEDDING_MODELS]?.[0]?.model || 
+                   DEFAULT_EMBEDDING_MODELS.openai?.[0]?.model || "",
+            dimensions: DEFAULT_EMBEDDING_MODELS[newProvider as keyof typeof DEFAULT_EMBEDDING_MODELS]?.[0]?.dimensions || 
+                        DEFAULT_EMBEDDING_MODELS.openai?.[0]?.dimensions || 1536
           }));
           
           // Load models for the new provider
@@ -196,10 +199,11 @@ export function ModelConfigTab() {
         // For OpenRouter, we use OpenAI embedding models since OpenRouter provides access to them
         setEmbeddingModels(DEFAULT_EMBEDDING_MODELS.openrouter);
         // Set default model if current one isn't available
-        if (!DEFAULT_EMBEDDING_MODELS.openrouter.includes(embeddingConfig.model)) {
+        if (!DEFAULT_EMBEDDING_MODELS.openrouter.some(m => m.model === embeddingConfig.model)) {
           setEmbeddingConfig(prev => ({
             ...prev,
-            model: DEFAULT_EMBEDDING_MODELS.openrouter[0]
+            model: DEFAULT_EMBEDDING_MODELS.openrouter[0].model,
+            dimensions: DEFAULT_EMBEDDING_MODELS.openrouter[0].dimensions
           }));
         }
       } else {
@@ -312,16 +316,29 @@ export function ModelConfigTab() {
     // Filter for embedding models
     const embeddingModels = result.data
       .filter((model: any) => model.id.includes('embedding'))
-      .map((model: any) => model.id)
-      .sort();
+      .map((model: any) => {
+        // Map known models to their dimensions
+        let dimensions = 1536; // default
+        if (model.id === "text-embedding-3-large") {
+          dimensions = 3072;
+        } else if (model.id === "text-embedding-3-small") {
+          dimensions = 1536;
+        } else if (model.id === "text-embedding-ada-002") {
+          dimensions = 1536;
+        }
+        return { model: model.id, dimensions };
+      })
+      .sort((a, b) => a.model.localeCompare(b.model));
     
     if (embeddingModels.length > 0) {
       setEmbeddingModels(embeddingModels);
       // Update selected model if current one isn't available
-      if (!embeddingModels.includes(embeddingConfig.model)) {
+      const currentModel = embeddingModels.find(m => m.model === embeddingConfig.model);
+      if (!currentModel) {
         setEmbeddingConfig(prev => ({
           ...prev,
-          model: embeddingModels[0]
+          model: embeddingModels[0].model,
+          dimensions: embeddingModels[0].dimensions
         }));
       }
     } else {
@@ -398,6 +415,7 @@ export function ModelConfigTab() {
     setEmbeddingConfig({
       provider: "openai",
       model: "text-embedding-3-large",
+      dimensions: 3072,
     });
     
     // Reset models to defaults
@@ -427,12 +445,26 @@ export function ModelConfigTab() {
     setEmbeddingConfig(prev => ({
       ...prev,
       provider: provider,
-      model: DEFAULT_EMBEDDING_MODELS[provider as keyof typeof DEFAULT_EMBEDDING_MODELS]?.[0] || 
-             DEFAULT_EMBEDDING_MODELS.openai?.[0] || ""
+      model: DEFAULT_EMBEDDING_MODELS[provider as keyof typeof DEFAULT_EMBEDDING_MODELS]?.[0]?.model || 
+             DEFAULT_EMBEDDING_MODELS.openai?.[0]?.model || "",
+      dimensions: DEFAULT_EMBEDDING_MODELS[provider as keyof typeof DEFAULT_EMBEDDING_MODELS]?.[0]?.dimensions || 
+                  DEFAULT_EMBEDDING_MODELS.openai?.[0]?.dimensions || 1536
     }));
     
     // Load models for the new provider
     loadEmbeddingModelsForProvider(provider);
+  };
+
+  // Update embedding model and dimensions
+  const handleEmbeddingModelChange = (model: string) => {
+    const selectedModel = embeddingModels.find(m => m.model === model);
+    if (selectedModel) {
+      setEmbeddingConfig(prev => ({
+        ...prev,
+        model: selectedModel.model,
+        dimensions: selectedModel.dimensions
+      }));
+    }
   };
 
   return (
@@ -604,48 +636,63 @@ export function ModelConfigTab() {
                 </p>
               </div>
               
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <Label>Embedding Model</Label>
-                  {embeddingConfig.provider === "openai" && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => loadEmbeddingModelsForProvider(embeddingConfig.provider)}
-                      disabled={loadingEmbeddingModels || loadingProviders}
-                    >
-                      {loadingEmbeddingModels ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        "Refresh"
-                      )}
-                    </Button>
-                  )}
-                </div>
-                <Select 
-                  value={embeddingConfig.model} 
-                  onValueChange={(value) => setEmbeddingConfig({...embeddingConfig, model: value})}
-                  disabled={loadingEmbeddingModels || loadingProviders}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select embedding model" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {embeddingModels.map((model) => (
-                      <SelectItem key={model} value={model}>
-                        {model}
-                      </SelectItem>
-                    ))}
-                    {embeddingModels.length === 0 && (
-                      <SelectItem value="" disabled>
-                        No models available
-                      </SelectItem>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <Label>Embedding Model</Label>
+                    {embeddingConfig.provider === "openai" && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => loadEmbeddingModelsForProvider(embeddingConfig.provider)}
+                        disabled={loadingEmbeddingModels || loadingProviders}
+                      >
+                        {loadingEmbeddingModels ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          "Refresh"
+                        )}
+                      </Button>
                     )}
-                  </SelectContent>
-                </Select>
-                <p className="text-sm text-muted-foreground">
-                  Model used for creating document embeddings
-                </p>
+                  </div>
+                  <Select 
+                    value={embeddingConfig.model} 
+                    onValueChange={handleEmbeddingModelChange}
+                    disabled={loadingEmbeddingModels || loadingProviders}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select embedding model" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {embeddingModels.map((model) => (
+                        <SelectItem key={model.model} value={model.model}>
+                          {model.model} ({model.dimensions} dimensions)
+                        </SelectItem>
+                      ))}
+                      {embeddingModels.length === 0 && (
+                        <SelectItem value="" disabled>
+                          No models available
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-muted-foreground">
+                    Model used for creating document embeddings
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Dimensions</Label>
+                  <Input
+                    type="number"
+                    value={embeddingConfig.dimensions}
+                    onChange={(e) => setEmbeddingConfig({...embeddingConfig, dimensions: parseInt(e.target.value) || 1536})}
+                    disabled
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Vector dimensions for embeddings (auto-detected)
+                  </p>
+                </div>
               </div>
             </div>
           </div>
