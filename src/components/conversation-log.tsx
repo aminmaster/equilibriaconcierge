@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useConversations } from "@/hooks/use-conversations";
+import { MarkdownRenderer } from "@/components/markdown-renderer";
 
 export function ConversationLog() {
   const { currentConversation, loading } = useConversations();
@@ -85,7 +86,7 @@ export function ConversationLog() {
                     ? "bg-primary text-primary-foreground rounded-tr-none" 
                     : "bg-muted rounded-tl-none"
                 )}>
-                  <div className="whitespace-pre-wrap">{message.content}</div>
+                  <MarkdownRenderer content={message.content} />
                   
                   {message.role === "assistant" && (
                     <div className="flex items-center gap-1 mt-2">
