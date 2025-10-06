@@ -16,7 +16,8 @@ import {
   Key, 
   Settings,
   Bug,
-  LogOut
+  LogOut,
+  User
 } from "lucide-react";
 import { KnowledgeBaseTab } from "@/components/admin/KnowledgeBaseTab";
 import { ApiKeysTab } from "@/components/admin/ApiKeysTab";
@@ -105,14 +106,24 @@ export default function Admin() {
               Manage knowledge bases, API keys, and system configuration
             </p>
           </div>
-          <Button 
-            variant="outline" 
-            onClick={handleSignOut}
-            className="gap-2"
-          >
-            <LogOut className="h-4 w-4" />
-            Sign Out
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/account')}
+              className="gap-2"
+            >
+              <User className="h-4 w-4" />
+              My Profile
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={handleSignOut}
+              className="gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
