@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
+import { useAnonymousSession } from "@/hooks/use-anonymous-session";
 
 interface Message {
   id: string;
@@ -20,6 +22,8 @@ export const useConversations = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const { sessionId, isAnonymous } = useAnonymousSession();
 
   // Load conversations
   useEffect(() => {
@@ -27,9 +31,7 @@ export const useConversations = () => {
       setLoading(true);
       
       try {
-        // For anonymous users, we would use session ID
-        // For authenticated users, we would use user ID
-        const { data, error } = await supabase
+        let query = supabase
           .from('conversations')
           .select(`
             id, 
@@ -39,6 +41,20 @@ export const useConversations = () => {
             messages (id, role, content, created_at)
           `)
           .order('updated_at', { ascending: false });
+        
+        // Filter by user or session
+        if (user?.id) {
+          query = query.eq('user_id', user.id);
+        } else if (sessionId && isAnonymous) {
+          query = query.eq('session_id', sessionId);
+        } else {
+          // No user or session, don't load conversations
+          setConversations([]);
+          setLoading(false);
+          return;
+        }
+        
+        const { data, error } = await query;
         
         if (!error && data) {
           setConversations(data.map(conv => ({
@@ -55,15 +71,33 @@ export const useConversations = () => {
       }
     };
     
-    loadConversations();
-  }, []);
+    if (user || (sessionId && isAnonymous)) {
+      loadConversations();
+    } else {
+      setLoading(false);
+    }
+  }, [user, sessionId, isAnonymous]);
 
   // Create a new conversation
   const createConversation = async (title: string) => {
     try {
+      // Prepare conversation data
+      const conversationData: any = {
+        title
+      };
+      
+      // Add user or session info
+      if (user?.id) {
+        conversationData.user_id = user.id;
+      } else if (sessionId && isAnonymous) {
+        conversationData.session_id = sessionId;
+      } else {
+        throw new Error("No user or session available");
+      }
+      
       const { data, error } = await supabase
         .from('conversations')
-        .insert([{ title }])
+        .insert([conversationData])
         .select()
         .single();
       
@@ -72,9 +106,12 @@ export const useConversations = () => {
         setConversations([newConversation, ...conversations]);
         setCurrentConversation(newConversation);
         return newConversation;
+      } else if (error) {
+        throw new Error(error.message);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating conversation:", error);
+      throw error;
     }
     
     return null;
@@ -111,9 +148,12 @@ export const useConversations = () => {
         }
         
         return data;
+      } else if (error) {
+        throw new Error(error.message);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding message:", error);
+      throw error;
     }
     
     return null;

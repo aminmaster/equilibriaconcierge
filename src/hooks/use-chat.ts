@@ -19,24 +19,29 @@ export const useChat = () => {
       // Create a new conversation if none exists
       let conversationId = currentConversation?.id;
       if (!conversationId) {
+        console.log("Creating new conversation");
         const newConversation = await createConversation("New Conversation");
         if (!newConversation) {
           throw new Error("Failed to create conversation");
         }
         conversationId = newConversation.id;
+        console.log("Created conversation with ID:", conversationId);
       }
       
       // Add user message to conversation
+      console.log("Adding user message to conversation:", conversationId);
       const userMessage = await addMessage(conversationId, "user", content);
       if (!userMessage) {
         throw new Error("Failed to add user message");
       }
+      console.log("Added user message:", userMessage);
       
       // Get session token
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       
       // Call chat edge function with streaming
+      console.log("Calling chat function with conversation ID:", conversationId);
       const response = await fetch('https://jmxemujffofqpqrxajlb.supabase.co/functions/v1/chat', {
         method: 'POST',
         headers: {
@@ -46,14 +51,22 @@ export const useChat = () => {
         body: JSON.stringify({
           message: content,
           conversationId: conversationId,
-          embeddingModel: 'text-embedding-3-large', // This could be made configurable
-          generationProvider: 'openrouter', // This could be made configurable
-          generationModel: 'openai/gpt-4o' // This could be made configurable
+          embeddingModel: 'text-embedding-3-large',
+          generationProvider: 'openrouter',
+          generationModel: 'openai/gpt-4o'
         })
       });
       
-      if (!response.ok || !response.body) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      console.log("Chat function response status:", response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Chat function error:", errorText);
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+      }
+      
+      if (!response.body) {
+        throw new Error("Response body is null");
       }
       
       // Process the stream
@@ -68,6 +81,7 @@ export const useChat = () => {
           if (done) {
             // Add final AI response to conversation if we haven't added anything yet
             if (aiResponse.trim()) {
+              console.log("Adding AI response to conversation");
               await addMessage(conversationId, "assistant", aiResponse);
             }
             break;
@@ -103,8 +117,8 @@ export const useChat = () => {
       }
       
     } catch (err: any) {
-      setError(err.message || "Failed to send message");
       console.error("Chat error:", err);
+      setError(err.message || "Failed to send message");
     } finally {
       setIsLoading(false);
       abortControllerRef.current = null;
