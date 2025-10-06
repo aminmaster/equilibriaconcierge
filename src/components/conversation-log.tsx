@@ -87,7 +87,9 @@ export function ConversationLog() {
                       ? "bg-primary text-primary-foreground rounded-tr-md" 
                       : "bg-muted rounded-tl-md"
                   )}>
-                    <MarkdownRenderer content={message.content} />
+                    <div className="break-words">
+                      <MarkdownRenderer content={message.content} />
+                    </div>
                     
                     {message.role === "assistant" && (
                       <div className="flex items-center gap-0.5 mt-1">
