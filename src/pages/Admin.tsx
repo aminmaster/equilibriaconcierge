@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth.tsx"; // Updated import
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,12 +14,14 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   Database, 
   Key, 
-  Settings
+  Settings,
+  Bug
 } from "lucide-react";
 import { KnowledgeBaseTab } from "@/components/admin/KnowledgeBaseTab";
 import { ApiKeysTab } from "@/components/admin/ApiKeysTab";
 import { ModelConfigTab } from "@/components/admin/ModelConfigTab";
 import { AdminAccessCheck } from "@/components/admin/AdminAccessCheck";
+import { TestApiKey } from "@/components/admin/TestApiKey";
 
 export default function Admin() {
   const { user, loading: authLoading } = useAuth();
@@ -112,6 +114,14 @@ export default function Admin() {
                     <Settings className="h-4 w-4" />
                     Model Config
                   </Button>
+                  <Button
+                    variant={activeTab === "test" ? "secondary" : "ghost"}
+                    className="w-full justify-start gap-2"
+                    onClick={() => setActiveTab("test")}
+                  >
+                    <Bug className="h-4 w-4" />
+                    Test API Key
+                  </Button>
                 </nav>
               </CardContent>
             </Card>
@@ -121,6 +131,7 @@ export default function Admin() {
             {activeTab === "knowledge" && <KnowledgeBaseTab />}
             {activeTab === "api" && <ApiKeysTab />}
             {activeTab === "model" && <ModelConfigTab />}
+            {activeTab === "test" && <TestApiKey />}
           </div>
         </div>
       </div>

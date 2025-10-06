@@ -22,7 +22,8 @@ import {
   Settings, 
   Save, 
   RotateCcw,
-  Loader2
+  Loader2,
+  AlertCircle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -54,16 +55,24 @@ export function ModelConfigTab() {
         .eq('provider', 'openai')
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Database error:", error);
+        throw new Error(`Database error: ${error.message}`);
+      }
+      
       if (!data) {
         toast({
           title: "API Key Not Found",
           description: "Please add an OpenAI API key to fetch available models.",
           variant: "destructive",
         });
+        setLoadingModels(false);
         return;
       }
 
+      // Log the key length for debugging (don't log the full key for security)
+      console.log("API Key found, length:", data.api_key.length);
+      
       // Fetch models from OpenAI API
       const response = await fetch('https://api.openai.com/v1/models', {
         headers: {
@@ -72,11 +81,16 @@ export function ModelConfigTab() {
         }
       });
 
+      console.log("OpenAI API response status:", response.status);
+      
       if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error("OpenAI API error response:", errorText);
+        throw new Error(`OpenAI API error (${response.status}): ${errorText}`);
       }
 
       const result = await response.json();
+      console.log("OpenAI API response:", result);
       
       // Filter for embedding models
       const embeddingModels = result.data
@@ -89,6 +103,12 @@ export function ModelConfigTab() {
         toast({
           title: "Models Loaded",
           description: `Found ${embeddingModels.length} embedding models.`,
+        });
+      } else {
+        toast({
+          title: "No Embedding Models Found",
+          description: "No embedding models were found in the OpenAI response.",
+          variant: "destructive",
         });
       }
     } catch (error: any) {
@@ -252,6 +272,24 @@ export function ModelConfigTab() {
             <Save className="h-4 w-4" />
             Save Configuration
           </Button>
+        </div>
+        
+        <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="flex items-start">
+            <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
+            <div>
+              <h4 className="text-sm font-medium text-yellow-800">Troubleshooting Tips</h4>
+              <p className="text-sm text-yellow-700 mt-1">
+                If you're getting a 403 error:
+                <ul className="list-disc list-inside mt-1 space-y-1">
+                  <li>Verify your OpenAI API key has the correct permissions</li>
+                  <li>Check that your OpenAI account is in good standing</li>
+                  <li>Ensure the key hasn't expired or been revoked</li>
+                  <li>Some OpenAI API keys may not have access to the models endpoint</li>
+                </ul>
+              </p>
+            </div>
+          </div>
         </div>
       </CardContent>
     </Card>
