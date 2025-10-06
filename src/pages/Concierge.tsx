@@ -46,12 +46,6 @@ export default function Concierge() {
             <div className="flex-1 overflow-hidden">
               <ConversationLog />
             </div>
-            <div className="shrink-0 border-t-0">
-              <ConciergeInterface 
-                inputMode={inputMode}
-                setInputMode={setInputMode}
-              />
-            </div>
           </Panel>
           
           <PanelResizeHandle className="w-1 bg-border/30 hover:bg-border transition-colors" />
@@ -59,11 +53,17 @@ export default function Concierge() {
           <Panel 
             defaultSize={defaultLayout[1]} 
             minSize={20}
-            className="relative flex flex-col"
+            className="relative"
           >
             <ConversationCanvas />
           </Panel>
         </PanelGroup>
+      </div>
+      <div className="fixed bottom-0 left-0 right-0 md:left-0 md:right-[30%] z-10"> {/* Position input bar at bottom */}
+        <ConciergeInterface 
+          inputMode={inputMode}
+          setInputMode={setInputMode}
+        />
       </div>
     </div>
   );
