@@ -37,16 +37,16 @@ export default function Concierge() {
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 overflow-hidden">
-        <PanelGroup direction="horizontal">
+        <PanelGroup direction="horizontal" className="h-full">
           <Panel 
             defaultSize={defaultLayout[0]} 
             minSize={20}
-            className="relative flex flex-col"
+            className="flex flex-col"
           >
-            <div className="flex-1 overflow-hidden flex flex-col">
+            <div className="flex-1 min-h-0 flex flex-col">
               <ConversationLog />
             </div>
-            <div className="shrink-0 border-t-0">
+            <div className="shrink-0">
               <ConciergeInterface 
                 inputMode={inputMode}
                 setInputMode={setInputMode}
@@ -59,9 +59,9 @@ export default function Concierge() {
           <Panel 
             defaultSize={defaultLayout[1]} 
             minSize={20}
-            className="relative flex flex-col"
+            className="flex flex-col"
           >
-            <div className="flex-1 overflow-hidden flex flex-col">
+            <div className="flex-1 min-h-0 flex flex-col">
               <ConversationCanvas />
             </div>
           </Panel>
