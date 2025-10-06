@@ -46,7 +46,7 @@ export function ConversationLog() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-3 border-b">
+      <div className="p-3 border-b flex-shrink-0">
         <h2 className="text-lg font-semibold">Conversation</h2>
         <p className="text-xs text-muted-foreground">
           {currentConversation?.messages.length || 0} messages
@@ -75,7 +75,7 @@ export function ConversationLog() {
                 )}
               >
                 {message.role === "assistant" && (
-                  <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                  <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
                     <span className="text-[0.6rem] font-bold text-primary-foreground">AI</span>
                   </div>
                 )}
@@ -142,7 +142,7 @@ export function ConversationLog() {
                 </div>
                 
                 {message.role === "user" && (
-                  <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center">
+                  <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
                     <span className="text-[0.6rem] font-bold">U</span>
                   </div>
                 )}

@@ -18,7 +18,7 @@ export function ConversationCanvas() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-2 border-b flex justify-between items-center">
+      <div className="p-2 border-b flex justify-between items-center flex-shrink-0">
         <h2 className="text-sm font-semibold">Knowledge Graph</h2>
         <div className="flex gap-1">
           <Button 

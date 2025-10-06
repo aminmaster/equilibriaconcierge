@@ -43,7 +43,7 @@ export default function Concierge() {
             minSize={20}
             className="relative flex flex-col"
           >
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-hidden flex flex-col">
               <ConversationLog />
             </div>
             <div className="shrink-0 border-t-0">
@@ -61,7 +61,9 @@ export default function Concierge() {
             minSize={20}
             className="relative flex flex-col"
           >
-            <ConversationCanvas />
+            <div className="flex-1 overflow-hidden flex flex-col">
+              <ConversationCanvas />
+            </div>
           </Panel>
         </PanelGroup>
       </div>
