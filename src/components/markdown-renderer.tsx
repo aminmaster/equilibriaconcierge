@@ -7,33 +7,14 @@ interface MarkdownRendererProps {
 }
 
 export const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
-  // Handle edge cases
   if (!content) {
-    return <div className="whitespace-pre-wrap break-words">content</div>;
+    return <div>{content}</div>;
   }
 
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       className="break-words"
-      components={{
-        h1: ({ node, ...props }) => <h1 className="text-xl font-bold mt-3 mb-1 break-words" {...props} />,
-        h2: ({ node, ...props }) => <h2 className="text-lg font-bold mt-3 mb-1 break-words" {...props} />,
-        h3: ({ node, ...props }) => <h3 className="font-bold mt-2 mb-1 break-words" {...props} />,
-        p: ({ node, ...props }) => <p className="mb-2 break-words" {...props} />,
-        code: ({ node, inline, ...props }) => 
-          inline ? (
-            <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono break-words" {...props} />
-          ) : (
-            <code className="bg-muted p-3 rounded text-sm font-mono block overflow-x-auto break-words" {...props} />
-          ),
-        blockquote: ({ node, ...props }) => (
-          <blockquote className="border-l-2 border-muted-foreground pl-4 ml-2 text-muted-foreground break-words" {...props} />
-        ),
-        ul: ({ node, ...props }) => <ul className="list-disc pl-5 space-y-1 break-words" {...props} />,
-        ol: ({ node, ...props }) => <ol className="list-decimal pl-5 space-y-1 break-words" {...props} />,
-        a: ({ node, ...props }) => <a className="text-primary hover:underline break-words" {...props} />,
-      }}
     >
       {content}
     </ReactMarkdown>
