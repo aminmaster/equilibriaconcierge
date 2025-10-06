@@ -181,7 +181,7 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
           
           {error && (
             <div className="mt-2 text-sm text-destructive">
-              {error}
+              Error: {error}
             </div>
           )}
           

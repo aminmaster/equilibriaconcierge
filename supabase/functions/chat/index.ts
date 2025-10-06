@@ -7,6 +7,9 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  console.log("Chat function called with method:", req.method);
+  console.log("Request headers:", [...req.headers.entries()]);
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -18,12 +21,31 @@ serve(async (req) => {
     )
     
     const authHeader = req.headers.get('Authorization')
+    console.log("Auth header present:", !!authHeader);
+    
     if (!authHeader) {
+      console.log("No authorization header found");
       return new Response('Unauthorized', { 
         status: 401, 
         headers: corsHeaders 
       })
     }
+    
+    // Verify the token
+    const token = authHeader.replace('Bearer ', '')
+    console.log("Token extracted from header");
+    
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token)
+    
+    if (userError || !user) {
+      console.log("Failed to verify user:", userError?.message || "No user found");
+      return new Response('Unauthorized', { 
+        status: 401, 
+        headers: corsHeaders 
+      })
+    }
+    
+    console.log("User verified:", user.id);
     
     const { 
       message, 
@@ -33,12 +55,17 @@ serve(async (req) => {
       generationModel = 'openai/gpt-4o'
     } = await req.json()
     
+    console.log("Request body:", { message, conversationId, embeddingModel, generationProvider, generationModel });
+    
     // Get conversation history
     const { data: messages, error: messagesError } = await supabaseClient
       .from('messages')
       .select('role, content')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true })
+    
+    console.log("Messages fetched:", messages?.length || 0);
+    console.log("Messages error:", messagesError);
     
     if (messagesError) {
       throw new Error(`Failed to fetch messages: ${messagesError.message}`)
@@ -51,6 +78,9 @@ serve(async (req) => {
       .eq('provider', 'openai') // Currently only OpenAI supports embeddings
       .limit(1)
       .single()
+    
+    console.log("Embedding key data:", !!embeddingKeyData);
+    console.log("Embedding key error:", embeddingKeyError);
     
     if (embeddingKeyError || !embeddingKeyData) {
       throw new Error('OpenAI API key not configured for embeddings')
@@ -69,8 +99,11 @@ serve(async (req) => {
       })
     })
     
+    console.log("OpenAI embeddings response status:", openaiResponse.status);
+    
     if (!openaiResponse.ok) {
-      throw new Error(`OpenAI API error: ${openaiResponse.statusText}`)
+      const errorText = await openaiResponse.text();
+      throw new Error(`OpenAI API error: ${openaiResponse.statusText} - ${errorText}`)
     }
     
     const embeddingData = await openaiResponse.json()
@@ -83,6 +116,9 @@ serve(async (req) => {
         match_threshold: 0.78,
         match_count: 5
       })
+    
+    console.log("Documents found:", documents?.length || 0);
+    console.log("Documents error:", documentsError);
     
     if (documentsError) {
       throw new Error(`Failed to search documents: ${documentsError.message}`)
@@ -120,6 +156,9 @@ serve(async (req) => {
       .eq('provider', generationProvider)
       .limit(1)
       .single()
+    
+    console.log("Generation key data:", !!generationKeyData);
+    console.log("Generation key error:", generationKeyError);
     
     if (generationKeyError || !generationKeyData) {
       throw new Error(`${generationProvider} API key not configured`)
@@ -173,8 +212,11 @@ serve(async (req) => {
       })
     }
     
-    if (!apiResponse.ok) {
-      throw new Error(`API error: ${apiResponse.statusText}`)
+    console.log("Generation API response status:", apiResponse?.status);
+    
+    if (!apiResponse?.ok) {
+      const errorText = await apiResponse?.text();
+      throw new Error(`API error: ${apiResponse?.statusText} - ${errorText}`)
     }
     
     // Stream the response back to the client

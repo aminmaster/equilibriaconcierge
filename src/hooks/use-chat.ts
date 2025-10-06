@@ -40,6 +40,8 @@ export const useChat = () => {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       
+      console.log("Auth token present:", !!token);
+      
       // Call chat edge function with streaming
       console.log("Calling chat function with conversation ID:", conversationId);
       const response = await fetch('https://jmxemujffofqpqrxajlb.supabase.co/functions/v1/chat', {
