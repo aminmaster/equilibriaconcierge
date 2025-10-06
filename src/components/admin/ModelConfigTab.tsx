@@ -28,8 +28,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-// Define available providers and their models
-const PROVIDER_MODELS = {
+// Define default models for each provider (fallback when API fetching isn't possible)
+const DEFAULT_PROVIDER_MODELS = {
   openrouter: [
     "openai/gpt-4o",
     "openai/gpt-4-turbo",
@@ -67,13 +67,22 @@ export function ModelConfigTab() {
     "text-embedding-ada-002"
   ]);
   const [availableProviders, setAvailableProviders] = useState<string[]>(["openrouter"]);
+  const [generationModels, setGenerationModels] = useState<string[]>(
+    DEFAULT_PROVIDER_MODELS.openrouter
+  );
   const [loadingModels, setLoadingModels] = useState(false);
   const [loadingProviders, setLoadingProviders] = useState(false);
+  const [loadingGenerationModels, setLoadingGenerationModels] = useState(false);
 
   // Load available providers based on saved API keys
   useEffect(() => {
     loadAvailableProviders();
   }, []);
+
+  // Load generation models when provider changes
+  useEffect(() => {
+    loadGenerationModelsForProvider(config.generationProvider);
+  }, [config.generationProvider]);
 
   const loadAvailableProviders = async () => {
     setLoadingProviders(true);
@@ -94,7 +103,7 @@ export function ModelConfigTab() {
         setConfig(prev => ({
           ...prev,
           generationProvider: providers[0],
-          generationModel: PROVIDER_MODELS[providers[0] as keyof typeof PROVIDER_MODELS]?.[0] || ""
+          generationModel: DEFAULT_PROVIDER_MODELS[providers[0] as keyof typeof DEFAULT_PROVIDER_MODELS]?.[0] || ""
         }));
       }
     } catch (error: any) {
@@ -106,6 +115,84 @@ export function ModelConfigTab() {
       });
     } finally {
       setLoadingProviders(false);
+    }
+  };
+
+  const loadGenerationModelsForProvider = async (provider: string) => {
+    setLoadingGenerationModels(true);
+    try {
+      // For OpenAI, we can fetch models from their API
+      if (provider === "openai") {
+        // Get OpenAI API key from database
+        const { data, error } = await supabase
+          .from('api_keys')
+          .select('api_key')
+          .eq('provider', 'openai')
+          .single();
+
+        if (error) throw error;
+        if (!data) {
+          // Use default models if no API key
+          setGenerationModels(DEFAULT_PROVIDER_MODELS.openai);
+          return;
+        }
+
+        // Fetch models from OpenAI API
+        const response = await fetch('https://api.openai.com/v1/models', {
+          headers: {
+            'Authorization': `Bearer ${data.api_key}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          // Use default models if API call fails
+          setGenerationModels(DEFAULT_PROVIDER_MODELS.openai);
+          return;
+        }
+
+        const result = await response.json();
+        
+        // Filter for chat completion models (excluding embeddings, etc.)
+        const chatModels = result.data
+          .filter((model: any) => 
+            model.id.includes('gpt') && 
+            !model.id.includes('instruct') &&
+            !model.id.includes('embedding') &&
+            !model.id.includes('audio') &&
+            !model.id.includes('vision')
+          )
+          .map((model: any) => model.id)
+          .sort();
+        
+        if (chatModels.length > 0) {
+          setGenerationModels(chatModels);
+          // Update selected model if current one isn't available
+          if (!chatModels.includes(config.generationModel)) {
+            setConfig(prev => ({
+              ...prev,
+              generationModel: chatModels[0]
+            }));
+          }
+        } else {
+          setGenerationModels(DEFAULT_PROVIDER_MODELS.openai);
+        }
+      } else {
+        // For other providers, use default models
+        setGenerationModels(
+          DEFAULT_PROVIDER_MODELS[provider as keyof typeof DEFAULT_PROVIDER_MODELS] || 
+          DEFAULT_PROVIDER_MODELS.openrouter
+        );
+      }
+    } catch (error: any) {
+      console.error(`Error loading models for ${provider}:`, error);
+      // Fallback to default models
+      setGenerationModels(
+        DEFAULT_PROVIDER_MODELS[provider as keyof typeof DEFAULT_PROVIDER_MODELS] || 
+        DEFAULT_PROVIDER_MODELS.openrouter
+      );
+    } finally {
+      setLoadingGenerationModels(false);
     }
   };
 
@@ -200,7 +287,7 @@ export function ModelConfigTab() {
     setConfig({
       embeddingModel: "text-embedding-3-large",
       generationProvider: availableProviders[0] || "openrouter",
-      generationModel: PROVIDER_MODELS[availableProviders[0] as keyof typeof PROVIDER_MODELS]?.[0] || "openai/gpt-4o",
+      generationModel: DEFAULT_PROVIDER_MODELS[availableProviders[0] as keyof typeof DEFAULT_PROVIDER_MODELS]?.[0] || "openai/gpt-4o",
       temperature: 0.7,
       maxTokens: 2048,
     });
@@ -215,7 +302,7 @@ export function ModelConfigTab() {
     setConfig(prev => ({
       ...prev,
       generationProvider: provider,
-      generationModel: PROVIDER_MODELS[provider as keyof typeof PROVIDER_MODELS]?.[0] || ""
+      generationModel: DEFAULT_PROVIDER_MODELS[provider as keyof typeof DEFAULT_PROVIDER_MODELS]?.[0] || ""
     }));
   };
 
@@ -294,23 +381,40 @@ export function ModelConfigTab() {
           </div>
           
           <div className="space-y-2">
-            <Label>Generation Model</Label>
+            <div className="flex justify-between items-center">
+              <Label>Generation Model</Label>
+              {config.generationProvider === "openai" && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => loadGenerationModelsForProvider(config.generationProvider)}
+                  disabled={loadingGenerationModels}
+                >
+                  {loadingGenerationModels ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Refresh"
+                  )}
+                </Button>
+              )}
+            </div>
             <Select 
               value={config.generationModel} 
               onValueChange={(value) => setConfig({...config, generationModel: value})}
-              disabled={!PROVIDER_MODELS[config.generationProvider as keyof typeof PROVIDER_MODELS]}
+              disabled={loadingGenerationModels}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select generation model" />
               </SelectTrigger>
               <SelectContent>
-                {PROVIDER_MODELS[config.generationProvider as keyof typeof PROVIDER_MODELS]?.map((model) => (
+                {generationModels.map((model) => (
                   <SelectItem key={model} value={model}>
                     {model}
                   </SelectItem>
-                )) || (
+                ))}
+                {generationModels.length === 0 && (
                   <SelectItem value="" disabled>
-                    No models available for this provider
+                    No models available
                   </SelectItem>
                 )}
               </SelectContent>
@@ -370,6 +474,7 @@ export function ModelConfigTab() {
               <h4 className="text-sm font-medium text-yellow-800">Provider Information</h4>
               <p className="text-sm text-yellow-700 mt-1">
                 Only providers with saved API keys are shown above. Add API keys in the "API Keys" tab to enable additional providers.
+                For OpenAI, you can refresh the model list to fetch available models from their API.
               </p>
             </div>
           </div>
