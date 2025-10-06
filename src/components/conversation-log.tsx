@@ -65,7 +65,7 @@ export function ConversationLog() {
             </p>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-6 pb-4">
             {currentConversation.messages.map((message) => (
               <div 
                 key={message.id} 

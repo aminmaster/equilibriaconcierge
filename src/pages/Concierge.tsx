@@ -58,7 +58,7 @@ export default function Concierge() {
         </PanelGroup>
       </div>
       
-      <div className="pb-24"> {/* Padding to prevent interface overlap */}
+      <div className="pb-24"> {/* Increased padding to prevent interface overlap */}
         <ConciergeInterface 
           inputMode={inputMode}
           setInputMode={setInputMode}

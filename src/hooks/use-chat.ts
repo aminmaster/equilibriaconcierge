@@ -51,11 +51,12 @@ export const useChat = () => {
         });
       }
       
+      console.log("Loaded model configuration:", config);
       return config;
     } catch (error) {
       console.error("Error loading model configuration:", error);
       // Return default configuration
-      return {
+      const defaultConfig = {
         generation: {
           provider: 'openrouter',
           model: 'openai/gpt-4o',
@@ -68,6 +69,8 @@ export const useChat = () => {
           dimensions: 3072
         }
       };
+      console.log("Using default model configuration:", defaultConfig);
+      return defaultConfig;
     }
   };
 
@@ -112,19 +115,23 @@ export const useChat = () => {
       console.log("Calling chat function with conversation ID:", conversationId);
       console.log("Using model config:", modelConfig);
       
+      const requestBody = {
+        message: content,
+        conversationId: conversationId,
+        embeddingModel: modelConfig.embedding.model,
+        generationProvider: modelConfig.generation.provider,
+        generationModel: modelConfig.generation.model
+      };
+      
+      console.log("Sending request body:", requestBody);
+      
       const response = await fetch('https://jmxemujffofqpqrxajlb.supabase.co/functions/v1/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(token && { 'Authorization': `Bearer ${token}` })
         },
-        body: JSON.stringify({
-          message: content,
-          conversationId: conversationId,
-          embeddingModel: modelConfig.embedding.model,
-          generationProvider: modelConfig.generation.provider,
-          generationModel: modelConfig.generation.model
-        })
+        body: JSON.stringify(requestBody)
       });
       
       console.log("Chat function response status:", response.status);
