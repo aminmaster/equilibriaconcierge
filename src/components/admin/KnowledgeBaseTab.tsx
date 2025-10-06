@@ -16,10 +16,21 @@ import {
   Upload,
   FileUp,
   Globe,
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface KnowledgeSource {
   id: string;
@@ -36,7 +47,7 @@ export function KnowledgeBaseTab() {
   const [loading, setLoading] = useState(true);
   const [file, setFile] = useState<File | null>(null);
   const [url, setUrl] = useState("");
-  const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
+  const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
 
   // Load knowledge sources
   const loadKnowledgeSources = async () => {
@@ -48,32 +59,13 @@ export function KnowledgeBaseTab() {
     
     if (!error && data) {
       setSources(data);
-      
-      // If there are any processing sources, set up auto-refresh
-      const processingSources = data.some((source: KnowledgeSource) => 
-        source.status === 'processing' || source.status === 'pending'
-      );
-      
-      if (processingSources && !refreshInterval) {
-        const interval = setInterval(loadKnowledgeSources, 5000); // Refresh every 5 seconds
-        setRefreshInterval(interval);
-      } else if (!processingSources && refreshInterval) {
-        clearInterval(refreshInterval);
-        setRefreshInterval(null);
-      }
     }
     setLoading(false);
   };
 
-  // Load sources on component mount and clean up interval on unmount
+  // Load sources on component mount
   useEffect(() => {
     loadKnowledgeSources();
-    
-    return () => {
-      if (refreshInterval) {
-        clearInterval(refreshInterval);
-      }
-    };
   }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -116,20 +108,12 @@ export function KnowledgeBaseTab() {
         setSources([data, ...sources]);
       }
       
-      // Start auto-refresh if not already started
-      if (!refreshInterval) {
-        const interval = setInterval(loadKnowledgeSources, 5000);
-        setRefreshInterval(interval);
-      }
-      
       // Call the ingest function
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       
       const projectId = "jmxemujffofqpqrxajlb";
       const functionUrl = `https://${projectId}.supabase.co/functions/v1/ingest`;
-      
-      console.log("Calling ingest function with sourceId:", data.id);
       
       const response = await fetch(functionUrl, {
         method: 'POST',
@@ -142,17 +126,10 @@ export function KnowledgeBaseTab() {
         })
       });
       
-      console.log("Ingest function response status:", response.status);
-      console.log("Ingest function response ok?", response.ok);
-      
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("Ingest function error response:", errorText);
         throw new Error(`Ingestion failed: ${response.statusText} - ${errorText}`);
       }
-      
-      const result = await response.json();
-      console.log("Ingest function result:", result);
       
       // Reset form
       setFile(null);
@@ -162,6 +139,70 @@ export function KnowledgeBaseTab() {
       toast({
         title: "Ingestion failed",
         description: error.message || "Failed to start knowledge ingestion process.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteSource = async (id: string) => {
+    try {
+      // Delete the knowledge source
+      const { error } = await supabase
+        .from('knowledge_sources')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      // Also delete associated documents
+      await supabase
+        .from('documents')
+        .delete()
+        .eq('source_id', id);
+      
+      // Update the UI
+      setSources(sources.filter(source => source.id !== id));
+      
+      toast({
+        title: "Source deleted",
+        description: "The knowledge source has been removed.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Deletion failed",
+        description: error.message || "Failed to delete the knowledge source.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteAllSources = async () => {
+    try {
+      // Delete all knowledge sources
+      const { error: sourcesError } = await supabase
+        .from('knowledge_sources')
+        .delete();
+      
+      if (sourcesError) throw sourcesError;
+      
+      // Delete all documents
+      const { error: documentsError } = await supabase
+        .from('documents')
+        .delete();
+      
+      if (documentsError) throw documentsError;
+      
+      // Update the UI
+      setSources([]);
+      
+      toast({
+        title: "All sources deleted",
+        description: "All knowledge sources and documents have been removed.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Deletion failed",
+        description: error.message || "Failed to delete all knowledge sources.",
         variant: "destructive",
       });
     }
@@ -243,10 +284,25 @@ export function KnowledgeBaseTab() {
                 Manage existing knowledge sources
               </CardDescription>
             </div>
-            <Button variant="outline" size="sm" onClick={loadKnowledgeSources}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={loadKnowledgeSources}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                onClick={() => setShowDeleteAllDialog(true)}
+                disabled={sources.length === 0}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete All
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -286,13 +342,39 @@ export function KnowledgeBaseTab() {
                       </div>
                     </div>
                   </div>
-                  <Button variant="outline">View</Button>
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    onClick={() => deleteSource(source.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               ))}
             </div>
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={showDeleteAllDialog} onOpenChange={setShowDeleteAllDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete all knowledge sources and their associated documents.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={deleteAllSources}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Delete All
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
