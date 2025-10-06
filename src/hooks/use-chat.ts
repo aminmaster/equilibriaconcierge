@@ -37,10 +37,22 @@ export const useChat = () => {
       console.log("Added user message:", userMessage);
       
       // Get session token
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      console.log("Getting session from Supabase");
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      console.log("Session data:", session);
+      console.log("Session error:", sessionError);
       
+      if (sessionError) {
+        console.error("Session error:", sessionError);
+        throw new Error(`Session error: ${sessionError.message}`);
+      }
+      
+      const token = session?.access_token;
       console.log("Auth token present:", !!token);
+      
+      if (!token) {
+        throw new Error("No authentication token available. Please sign in.");
+      }
       
       // Call chat edge function with streaming
       console.log("Calling chat function with conversation ID:", conversationId);
@@ -48,7 +60,7 @@ export const useChat = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` })
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           message: content,
