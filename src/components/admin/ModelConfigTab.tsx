@@ -52,27 +52,35 @@ const DEFAULT_PROVIDER_MODELS = {
   ]
 };
 
+// Define default embedding models
+const DEFAULT_EMBEDDING_MODELS = {
+  openai: [
+    "text-embedding-3-large",
+    "text-embedding-3-small",
+    "text-embedding-ada-002"
+  ]
+};
+
 export function ModelConfigTab() {
   const { toast } = useToast();
   const [config, setConfig] = useState({
+    embeddingProvider: "openai",
     embeddingModel: "text-embedding-3-large",
     generationProvider: "openrouter",
     generationModel: "openai/gpt-4o",
     temperature: 0.7,
     maxTokens: 2048,
   });
-  const [embeddingModels, setEmbeddingModels] = useState<string[]>([
-    "text-embedding-3-large",
-    "text-embedding-3-small",
-    "text-embedding-ada-002"
-  ]);
   const [availableProviders, setAvailableProviders] = useState<string[]>(["openrouter"]);
   const [generationModels, setGenerationModels] = useState<string[]>(
     DEFAULT_PROVIDER_MODELS.openrouter
   );
-  const [loadingModels, setLoadingModels] = useState(false);
+  const [embeddingModels, setEmbeddingModels] = useState<string[]>(
+    DEFAULT_EMBEDDING_MODELS.openai
+  );
   const [loadingProviders, setLoadingProviders] = useState(false);
   const [loadingGenerationModels, setLoadingGenerationModels] = useState(false);
+  const [loadingEmbeddingModels, setLoadingEmbeddingModels] = useState(false);
 
   // Load available providers based on saved API keys
   useEffect(() => {
@@ -83,6 +91,11 @@ export function ModelConfigTab() {
   useEffect(() => {
     loadGenerationModelsForProvider(config.generationProvider);
   }, [config.generationProvider]);
+
+  // Load embedding models when provider changes
+  useEffect(() => {
+    loadEmbeddingModelsForProvider(config.embeddingProvider);
+  }, [config.embeddingProvider]);
 
   const loadAvailableProviders = async () => {
     setLoadingProviders(true);
@@ -98,13 +111,24 @@ export function ModelConfigTab() {
       const providers = [...new Set(data.map((key: any) => key.provider))];
       setAvailableProviders(providers);
       
-      // If current provider is not available, reset to first available
-      if (providers.length > 0 && !providers.includes(config.generationProvider)) {
-        setConfig(prev => ({
-          ...prev,
-          generationProvider: providers[0],
-          generationModel: DEFAULT_PROVIDER_MODELS[providers[0] as keyof typeof DEFAULT_PROVIDER_MODELS]?.[0] || ""
-        }));
+      // If current providers are not available, reset to first available
+      if (providers.length > 0) {
+        if (!providers.includes(config.generationProvider)) {
+          setConfig(prev => ({
+            ...prev,
+            generationProvider: providers[0],
+            generationModel: DEFAULT_PROVIDER_MODELS[providers[0] as keyof typeof DEFAULT_PROVIDER_MODELS]?.[0] || ""
+          }));
+        }
+        
+        if (!providers.includes(config.embeddingProvider)) {
+          setConfig(prev => ({
+            ...prev,
+            embeddingProvider: providers[0],
+            embeddingModel: DEFAULT_EMBEDDING_MODELS[providers[0] as keyof typeof DEFAULT_EMBEDDING_MODELS]?.[0] || 
+                           DEFAULT_EMBEDDING_MODELS.openai?.[0] || ""
+          }));
+        }
       }
     } catch (error: any) {
       console.error("Error loading providers:", error);
@@ -133,7 +157,7 @@ export function ModelConfigTab() {
         );
       }
     } catch (error: any) {
-      console.error(`Error loading models for ${provider}:`, error);
+      console.error(`Error loading generation models for ${provider}:`, error);
       // Fallback to default models
       setGenerationModels(
         DEFAULT_PROVIDER_MODELS[provider as keyof typeof DEFAULT_PROVIDER_MODELS] || 
@@ -141,6 +165,30 @@ export function ModelConfigTab() {
       );
     } finally {
       setLoadingGenerationModels(false);
+    }
+  };
+
+  const loadEmbeddingModelsForProvider = async (provider: string) => {
+    setLoadingEmbeddingModels(true);
+    try {
+      if (provider === "openai") {
+        await fetchOpenAIEmbeddingModels();
+      } else {
+        // For other providers, use default embedding models
+        setEmbeddingModels(
+          DEFAULT_EMBEDDING_MODELS[provider as keyof typeof DEFAULT_EMBEDDING_MODELS] || 
+          DEFAULT_EMBEDDING_MODELS.openai
+        );
+      }
+    } catch (error: any) {
+      console.error(`Error loading embedding models for ${provider}:`, error);
+      // Fallback to default models
+      setEmbeddingModels(
+        DEFAULT_EMBEDDING_MODELS[provider as keyof typeof DEFAULT_EMBEDDING_MODELS] || 
+        DEFAULT_EMBEDDING_MODELS.openai
+      );
+    } finally {
+      setLoadingEmbeddingModels(false);
     }
   };
 
@@ -201,6 +249,57 @@ export function ModelConfigTab() {
     }
   };
 
+  const fetchOpenAIEmbeddingModels = async () => {
+    // Get OpenAI API key from database
+    const { data, error } = await supabase
+      .from('api_keys')
+      .select('api_key')
+      .eq('provider', 'openai')
+      .single();
+
+    if (error) throw error;
+    if (!data) {
+      // Use default models if no API key
+      setEmbeddingModels(DEFAULT_EMBEDDING_MODELS.openai);
+      return;
+    }
+
+    // Fetch models from OpenAI API
+    const response = await fetch('https://api.openai.com/v1/models', {
+      headers: {
+        'Authorization': `Bearer ${data.api_key}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      // Use default models if API call fails
+      setEmbeddingModels(DEFAULT_EMBEDDING_MODELS.openai);
+      return;
+    }
+
+    const result = await response.json();
+    
+    // Filter for embedding models
+    const embeddingModels = result.data
+      .filter((model: any) => model.id.includes('embedding'))
+      .map((model: any) => model.id)
+      .sort();
+    
+    if (embeddingModels.length > 0) {
+      setEmbeddingModels(embeddingModels);
+      // Update selected model if current one isn't available
+      if (!embeddingModels.includes(config.embeddingModel)) {
+        setConfig(prev => ({
+          ...prev,
+          embeddingModel: embeddingModels[0]
+        }));
+      }
+    } else {
+      setEmbeddingModels(DEFAULT_EMBEDDING_MODELS.openai);
+    }
+  };
+
   const fetchOpenRouterModels = async () => {
     // Get OpenRouter API key from database
     const { data, error } = await supabase
@@ -251,85 +350,6 @@ export function ModelConfigTab() {
     }
   };
 
-  // Fetch available embedding models from OpenAI
-  const fetchEmbeddingModels = async () => {
-    setLoadingModels(true);
-    try {
-      // Get OpenAI API key from database
-      const { data, error } = await supabase
-        .from('api_keys')
-        .select('api_key')
-        .eq('provider', 'openai')
-        .single();
-
-      if (error) {
-        console.error("Database error:", error);
-        throw new Error(`Database error: ${error.message}`);
-      }
-      
-      if (!data) {
-        toast({
-          title: "API Key Not Found",
-          description: "Please add an OpenAI API key to fetch available models.",
-          variant: "destructive",
-        });
-        setLoadingModels(false);
-        return;
-      }
-
-      // Log the key length for debugging (don't log the full key for security)
-      console.log("API Key found, length:", data.api_key.length);
-      
-      // Fetch models from OpenAI API
-      const response = await fetch('https://api.openai.com/v1/models', {
-        headers: {
-          'Authorization': `Bearer ${data.api_key}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      console.log("OpenAI API response status:", response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("OpenAI API error response:", errorText);
-        throw new Error(`OpenAI API error (${response.status}): ${errorText}`);
-      }
-
-      const result = await response.json();
-      console.log("OpenAI API response:", result);
-      
-      // Filter for embedding models
-      const embeddingModels = result.data
-        .filter((model: any) => model.id.includes('embedding'))
-        .map((model: any) => model.id)
-        .sort();
-      
-      if (embeddingModels.length > 0) {
-        setEmbeddingModels(embeddingModels);
-        toast({
-          title: "Models Loaded",
-          description: `Found ${embeddingModels.length} embedding models.`,
-        });
-      } else {
-        toast({
-          title: "No Embedding Models Found",
-          description: "No embedding models were found in the OpenAI response.",
-          variant: "destructive",
-        });
-      }
-    } catch (error: any) {
-      console.error("Error fetching models:", error);
-      toast({
-        title: "Failed to Load Models",
-        description: error.message || "Could not fetch embedding models from OpenAI.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingModels(false);
-    }
-  };
-
   const handleSave = () => {
     // In a real implementation, this would save to the database
     toast({
@@ -340,24 +360,40 @@ export function ModelConfigTab() {
 
   const handleReset = () => {
     setConfig({
+      embeddingProvider: "openai",
       embeddingModel: "text-embedding-3-large",
       generationProvider: availableProviders[0] || "openrouter",
       generationModel: DEFAULT_PROVIDER_MODELS[availableProviders[0] as keyof typeof DEFAULT_PROVIDER_MODELS]?.[0] || "openai/gpt-4o",
       temperature: 0.7,
       maxTokens: 2048,
     });
+    
+    // Reset models to defaults
+    setGenerationModels(DEFAULT_PROVIDER_MODELS.openrouter);
+    setEmbeddingModels(DEFAULT_EMBEDDING_MODELS.openai);
+    
     toast({
       title: "Configuration Reset",
       description: "Model configuration has been reset to defaults.",
     });
   };
 
-  // Update models when provider changes
-  const handleProviderChange = (provider: string) => {
+  // Update generation models when provider changes
+  const handleGenerationProviderChange = (provider: string) => {
     setConfig(prev => ({
       ...prev,
       generationProvider: provider,
       generationModel: DEFAULT_PROVIDER_MODELS[provider as keyof typeof DEFAULT_PROVIDER_MODELS]?.[0] || ""
+    }));
+  };
+
+  // Update embedding models when provider changes
+  const handleEmbeddingProviderChange = (provider: string) => {
+    setConfig(prev => ({
+      ...prev,
+      embeddingProvider: provider,
+      embeddingModel: DEFAULT_EMBEDDING_MODELS[provider as keyof typeof DEFAULT_EMBEDDING_MODELS]?.[0] || 
+                     DEFAULT_EMBEDDING_MODELS.openai?.[0] || ""
     }));
   };
 
@@ -372,24 +408,55 @@ export function ModelConfigTab() {
       <CardContent className="space-y-6">
         <div className="space-y-4">
           <div className="space-y-2">
+            <Label>Embedding Provider</Label>
+            <Select 
+              value={config.embeddingProvider} 
+              onValueChange={handleEmbeddingProviderChange}
+              disabled={loadingProviders}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select embedding provider" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableProviders.map((provider) => (
+                  <SelectItem key={provider} value={provider}>
+                    {provider.charAt(0).toUpperCase() + provider.slice(1)}
+                  </SelectItem>
+                ))}
+                {availableProviders.length === 0 && (
+                  <SelectItem value="openai" disabled>
+                    No providers available - add API keys first
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground">
+              Provider used for creating document embeddings
+            </p>
+          </div>
+          
+          <div className="space-y-2">
             <div className="flex justify-between items-center">
               <Label>Embedding Model</Label>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={fetchEmbeddingModels}
-                disabled={loadingModels}
-              >
-                {loadingModels ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  "Refresh"
-                )}
-              </Button>
+              {config.embeddingProvider === "openai" && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => loadEmbeddingModelsForProvider(config.embeddingProvider)}
+                  disabled={loadingEmbeddingModels}
+                >
+                  {loadingEmbeddingModels ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Refresh"
+                  )}
+                </Button>
+              )}
             </div>
             <Select 
               value={config.embeddingModel} 
               onValueChange={(value) => setConfig({...config, embeddingModel: value})}
+              disabled={loadingEmbeddingModels}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select embedding model" />
@@ -400,6 +467,11 @@ export function ModelConfigTab() {
                     {model}
                   </SelectItem>
                 ))}
+                {embeddingModels.length === 0 && (
+                  <SelectItem value="" disabled>
+                    No models available
+                  </SelectItem>
+                )}
               </SelectContent>
             </Select>
             <p className="text-sm text-muted-foreground">
@@ -411,7 +483,7 @@ export function ModelConfigTab() {
             <Label>Generation Provider</Label>
             <Select 
               value={config.generationProvider} 
-              onValueChange={handleProviderChange}
+              onValueChange={handleGenerationProviderChange}
               disabled={loadingProviders}
             >
               <SelectTrigger>
