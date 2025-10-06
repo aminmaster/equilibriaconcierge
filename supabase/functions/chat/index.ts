@@ -103,7 +103,8 @@ serve(async (req) => {
     const embeddingData = await openaiResponse.json()
     const queryEmbedding = embeddingData.data[0].embedding
     
-    // Search for relevant documents
+    // Search for relevant documents using the correct RPC function
+    console.log("Searching for documents with embedding");
     const { data: documents, error: documentsError } = await supabaseClient
       .rpc('match_documents', {
         query_embedding: queryEmbedding,
@@ -115,16 +116,24 @@ serve(async (req) => {
     console.log("Documents error:", documentsError);
     
     if (documentsError) {
+      console.error("Document search error:", documentsError);
       throw new Error(`Failed to search documents: ${documentsError.message}`)
     }
     
     // Construct context from retrieved documents
-    const context = documents.map((doc: any) => doc.content).join('\n\n')
+    let context = "";
+    if (documents && documents.length > 0) {
+      context = documents.map((doc: any) => doc.content).join('\n\n')
+      console.log("Context constructed from documents, length:", context.length);
+    } else {
+      console.log("No relevant documents found");
+      context = "No relevant documents found in the knowledge base.";
+    }
     
     // Prepare messages for the LLM
     const systemMessage = {
       role: 'system',
-      content: `You are a helpful AI assistant. Use the following context to answer the user's question:\n\n${context}`
+      content: `You are a helpful AI assistant. Use the following context to answer the user's question. If the context doesn't contain relevant information, say so:\n\n${context}`
     }
     
     const conversationMessages = messages.map((msg: any) => ({
