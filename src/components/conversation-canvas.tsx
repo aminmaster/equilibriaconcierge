@@ -18,27 +18,27 @@ export function ConversationCanvas() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-3 border-b flex justify-between items-center">
-        <h2 className="text-lg font-semibold">Knowledge Graph</h2>
+      <div className="p-2 border-b flex justify-between items-center">
+        <h2 className="text-base font-semibold">Knowledge Graph</h2>
         <div className="flex gap-1">
           <Button 
             size="sm" 
             variant="outline" 
-            className="gap-1 h-8 text-xs"
+            className="gap-1 h-7 text-xs"
             onClick={() => setShowShareModal(true)}
             disabled={!currentConversation}
           >
             <Share className="h-3 w-3" />
             Share
           </Button>
-          <Button size="sm" variant="outline" className="gap-1 h-8 text-xs">
+          <Button size="sm" variant="outline" className="gap-1 h-7 text-xs">
             <Download className="h-3 w-3" />
             Export
           </Button>
           <Button 
             size="icon" 
             variant="ghost"
-            className="h-8 w-8"
+            className="h-7 w-7"
           >
             {isFullscreen ? (
               <Minimize2 className="h-3 w-3" />
@@ -49,10 +49,10 @@ export function ConversationCanvas() {
         </div>
       </div>
       
-      <div className="flex-1 flex items-center justify-center p-4">
-        <div className="text-center max-w-xs">
-          <div className="bg-muted rounded-full p-3 inline-block mb-3">
-            <div className="grid grid-cols-3 gap-1 w-12 h-12">
+      <div className="flex-1 flex items-center justify-center p-2">
+        <div className="text-center max-w-[140px]">
+          <div className="bg-muted rounded-full p-2 inline-block mb-2">
+            <div className="grid grid-cols-3 gap-0.5 w-10 h-10">
               {[...Array(9)].map((_, i) => (
                 <div 
                   key={i} 
@@ -62,8 +62,8 @@ export function ConversationCanvas() {
               ))}
             </div>
           </div>
-          <h3 className="text-base font-semibold mb-1">Visual Knowledge Map</h3>
-          <p className="text-muted-foreground text-sm">
+          <h3 className="text-sm font-semibold mb-1">Visual Knowledge Map</h3>
+          <p className="text-muted-foreground text-xs">
             Relationships between concepts will appear here as you explore topics in your conversation.
           </p>
         </div>
