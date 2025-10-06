@@ -29,7 +29,7 @@ export function ConversationLog() {
   if (loading) {
     return (
       <div className="h-full flex flex-col">
-        <div className="p-2 border-b sticky top-0 bg-background z-10">
+        <div className="p-2 border-b bg-background z-10">
           <div className="h-5 w-32 bg-gray-200 rounded animate-pulse"></div>
         </div>
         <div className="flex-1 p-3 space-y-3">
@@ -46,7 +46,7 @@ export function ConversationLog() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-2 border-b sticky top-0 bg-background z-10">
+      <div className="p-2 border-b bg-background z-10">
         <h2 className="text-base font-semibold">Conversation</h2>
         <p className="text-xs text-muted-foreground">
           {currentConversation?.messages.length || 0} messages
