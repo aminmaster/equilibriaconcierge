@@ -67,7 +67,7 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Ask me anything..."
-                className="min-h-[48px] flex-1 resize-none shadow-sm"
+                className="min-h-12 h-12 flex-1 resize-none shadow-sm py-3"
                 disabled={isLoading}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
@@ -97,7 +97,7 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
                       className="h-12 w-12"
                       disabled={!message.trim() || isLoading}
                       aria-label="Send message"
-                      variant={message.trim() ? "default" : "outline"}
+                      variant={message.trim() ? "default" : "secondary"}
                     >
                       <Send className="h-5 w-5" />
                     </Button>
