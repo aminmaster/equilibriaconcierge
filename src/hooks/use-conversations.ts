@@ -103,7 +103,7 @@ export const useConversations = () => {
       
       if (!error && data) {
         const newConversation = { ...data, messages: [] };
-        setConversations([newConversation, ...conversations]);
+        setConversations(prev => [newConversation, ...prev]);
         setCurrentConversation(newConversation);
         return newConversation;
       } else if (error) {
@@ -128,7 +128,7 @@ export const useConversations = () => {
       
       if (!error && data) {
         // Update the conversation in state
-        setConversations(convs => convs.map(conv => 
+        setConversations(prev => prev.map(conv => 
           conv.id === conversationId 
             ? { 
                 ...conv, 
