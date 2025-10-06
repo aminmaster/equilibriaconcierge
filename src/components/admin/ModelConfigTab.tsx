@@ -121,62 +121,10 @@ export function ModelConfigTab() {
   const loadGenerationModelsForProvider = async (provider: string) => {
     setLoadingGenerationModels(true);
     try {
-      // For OpenAI, we can fetch models from their API
       if (provider === "openai") {
-        // Get OpenAI API key from database
-        const { data, error } = await supabase
-          .from('api_keys')
-          .select('api_key')
-          .eq('provider', 'openai')
-          .single();
-
-        if (error) throw error;
-        if (!data) {
-          // Use default models if no API key
-          setGenerationModels(DEFAULT_PROVIDER_MODELS.openai);
-          return;
-        }
-
-        // Fetch models from OpenAI API
-        const response = await fetch('https://api.openai.com/v1/models', {
-          headers: {
-            'Authorization': `Bearer ${data.api_key}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (!response.ok) {
-          // Use default models if API call fails
-          setGenerationModels(DEFAULT_PROVIDER_MODELS.openai);
-          return;
-        }
-
-        const result = await response.json();
-        
-        // Filter for chat completion models (excluding embeddings, etc.)
-        const chatModels = result.data
-          .filter((model: any) => 
-            model.id.includes('gpt') && 
-            !model.id.includes('instruct') &&
-            !model.id.includes('embedding') &&
-            !model.id.includes('audio') &&
-            !model.id.includes('vision')
-          )
-          .map((model: any) => model.id)
-          .sort();
-        
-        if (chatModels.length > 0) {
-          setGenerationModels(chatModels);
-          // Update selected model if current one isn't available
-          if (!chatModels.includes(config.generationModel)) {
-            setConfig(prev => ({
-              ...prev,
-              generationModel: chatModels[0]
-            }));
-          }
-        } else {
-          setGenerationModels(DEFAULT_PROVIDER_MODELS.openai);
-        }
+        await fetchOpenAIModels();
+      } else if (provider === "openrouter") {
+        await fetchOpenRouterModels();
       } else {
         // For other providers, use default models
         setGenerationModels(
@@ -193,6 +141,113 @@ export function ModelConfigTab() {
       );
     } finally {
       setLoadingGenerationModels(false);
+    }
+  };
+
+  const fetchOpenAIModels = async () => {
+    // Get OpenAI API key from database
+    const { data, error } = await supabase
+      .from('api_keys')
+      .select('api_key')
+      .eq('provider', 'openai')
+      .single();
+
+    if (error) throw error;
+    if (!data) {
+      // Use default models if no API key
+      setGenerationModels(DEFAULT_PROVIDER_MODELS.openai);
+      return;
+    }
+
+    // Fetch models from OpenAI API
+    const response = await fetch('https://api.openai.com/v1/models', {
+      headers: {
+        'Authorization': `Bearer ${data.api_key}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      // Use default models if API call fails
+      setGenerationModels(DEFAULT_PROVIDER_MODELS.openai);
+      return;
+    }
+
+    const result = await response.json();
+    
+    // Filter for chat completion models (excluding embeddings, etc.)
+    const chatModels = result.data
+      .filter((model: any) => 
+        model.id.includes('gpt') && 
+        !model.id.includes('instruct') &&
+        !model.id.includes('embedding') &&
+        !model.id.includes('audio') &&
+        !model.id.includes('vision')
+      )
+      .map((model: any) => model.id)
+      .sort();
+    
+    if (chatModels.length > 0) {
+      setGenerationModels(chatModels);
+      // Update selected model if current one isn't available
+      if (!chatModels.includes(config.generationModel)) {
+        setConfig(prev => ({
+          ...prev,
+          generationModel: chatModels[0]
+        }));
+      }
+    } else {
+      setGenerationModels(DEFAULT_PROVIDER_MODELS.openai);
+    }
+  };
+
+  const fetchOpenRouterModels = async () => {
+    // Get OpenRouter API key from database
+    const { data, error } = await supabase
+      .from('api_keys')
+      .select('api_key')
+      .eq('provider', 'openrouter')
+      .single();
+
+    if (error) throw error;
+    if (!data) {
+      // Use default models if no API key
+      setGenerationModels(DEFAULT_PROVIDER_MODELS.openrouter);
+      return;
+    }
+
+    // Fetch models from OpenRouter API
+    const response = await fetch('https://openrouter.ai/api/v1/models', {
+      headers: {
+        'Authorization': `Bearer ${data.api_key}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      // Use default models if API call fails
+      setGenerationModels(DEFAULT_PROVIDER_MODELS.openrouter);
+      return;
+    }
+
+    const result = await response.json();
+    
+    // Extract model IDs from the response
+    const models = result.data
+      .map((model: any) => model.id)
+      .sort();
+    
+    if (models.length > 0) {
+      setGenerationModels(models);
+      // Update selected model if current one isn't available
+      if (!models.includes(config.generationModel)) {
+        setConfig(prev => ({
+          ...prev,
+          generationModel: models[0]
+        }));
+      }
+    } else {
+      setGenerationModels(DEFAULT_PROVIDER_MODELS.openrouter);
     }
   };
 
@@ -383,7 +438,7 @@ export function ModelConfigTab() {
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <Label>Generation Model</Label>
-              {config.generationProvider === "openai" && (
+              {(config.generationProvider === "openai" || config.generationProvider === "openrouter") && (
                 <Button 
                   variant="ghost" 
                   size="sm" 
@@ -474,7 +529,7 @@ export function ModelConfigTab() {
               <h4 className="text-sm font-medium text-yellow-800">Provider Information</h4>
               <p className="text-sm text-yellow-700 mt-1">
                 Only providers with saved API keys are shown above. Add API keys in the "API Keys" tab to enable additional providers.
-                For OpenAI, you can refresh the model list to fetch available models from their API.
+                For OpenAI and OpenRouter, you can refresh the model list to fetch available models from their APIs.
               </p>
             </div>
           </div>
