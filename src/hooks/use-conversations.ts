@@ -105,7 +105,13 @@ export const useConversations = () => {
       const { data, error } = await supabase
         .from('conversations')
         .insert([conversationData])
-        .select()
+        .select(`
+          id, 
+          title, 
+          created_at, 
+          updated_at,
+          messages (id, role, content, created_at)
+        `)
         .single();
       
       if (!error && data) {
@@ -136,23 +142,29 @@ export const useConversations = () => {
       if (!error && data) {
         // Update the conversation in state immediately
         setConversations(prev => 
-          prev.map(conv => 
-            conv.id === conversationId 
-              ? { 
-                  ...conv, 
-                  messages: [...conv.messages, data],
-                  updated_at: new Date().toISOString()
-                } 
-              : conv
-          )
+          prev.map(conv => {
+            if (conv.id === conversationId) {
+              const updatedMessages = [...conv.messages, data];
+              return { 
+                ...conv, 
+                messages: updatedMessages,
+                updated_at: new Date().toISOString()
+              };
+            }
+            return conv;
+          })
         );
         
         // Update current conversation if it's the one we're adding to
         if (currentConversation && currentConversation.id === conversationId) {
-          setCurrentConversation({
-            ...currentConversation,
-            messages: [...currentConversation.messages, data],
-            updated_at: new Date().toISOString()
+          setCurrentConversation(prev => {
+            if (!prev) return prev;
+            const updatedMessages = [...prev.messages, data];
+            return {
+              ...prev,
+              messages: updatedMessages,
+              updated_at: new Date().toISOString()
+            };
           });
         }
         
