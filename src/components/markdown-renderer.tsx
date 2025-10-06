@@ -15,7 +15,6 @@ export const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
-      className="prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5"
       components={{
         // Customize heading elements
         h1: ({ node, ...props }) => <h1 className="text-xl font-bold mt-3 mb-1" {...props} />,
