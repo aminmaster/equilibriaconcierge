@@ -1,3 +1,6 @@
+Let me fix the UI issues with the command center and button positioning:
+
+<dyad-write path="src/components/concierge-interface.tsx" description="Fix button positioning and sizing">
 "use client";
 
 import { useState, useRef, useEffect } from "react";
@@ -77,7 +80,7 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
                 }}
               />
               
-              <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
                 <Button
                   type="button"
                   size="icon"
@@ -116,30 +119,6 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
             </form>
           ) : (
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Button
-                  size="icon"
-                  variant="outline"
-                  onClick={() => setInputMode("text")}
-                  className="h-12 w-12"
-                  aria-label="Switch to text input"
-                  disabled={isLoading}
-                >
-                  <Keyboard className="h-5 w-5" />
-                </Button>
-                
-                <Button
-                  size="icon"
-                  variant={isListening ? "destructive" : "default"}
-                  onClick={toggleListening}
-                  className="h-12 w-12"
-                  aria-label={isListening ? "Stop listening" : "Start listening"}
-                  disabled={isLoading}
-                >
-                  <Mic className="h-5 w-5" />
-                </Button>
-              </div>
-              
               <div className="flex-1">
                 <div className="flex justify-center gap-1 h-6">
                   {[...Array(20)].map((_, i) => (
@@ -158,18 +137,42 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
                 </p>
               </div>
               
-              {isLoading && (
+              <div className="flex gap-2">
                 <Button
-                  type="button"
                   size="icon"
-                  variant="destructive"
+                  variant={isListening ? "destructive" : "default"}
+                  onClick={toggleListening}
                   className="h-12 w-12"
-                  onClick={cancelStream}
-                  aria-label="Cancel message"
+                  aria-label={isListening ? "Stop listening" : "Start listening"}
+                  disabled={isLoading}
                 >
-                  <Square className="h-5 w-5" />
+                  <Mic className="h-5 w-5" />
                 </Button>
-              )}
+                
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => setInputMode("text")}
+                  className="h-12 w-12"
+                  aria-label="Switch to text input"
+                  disabled={isLoading}
+                >
+                  <Keyboard className="h-5 w-5" />
+                </Button>
+                
+                {isLoading && (
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="destructive"
+                    className="h-12 w-12"
+                    onClick={cancelStream}
+                    aria-label="Cancel message"
+                  >
+                    <Square className="h-5 w-5" />
+                  </Button>
+                )}
+              </div>
             </div>
           )}
           

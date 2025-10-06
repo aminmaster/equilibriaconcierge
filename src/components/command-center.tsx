@@ -43,8 +43,9 @@ export function CommandCenter() {
     setIsClient(true);
   }, []);
 
-  // Don't show command center on fullscreen routes
+  // Show command center on most routes, hide only on specific fullscreen routes
   const isFullScreenRoute = location.pathname === "/concierge";
+  
   if (isFullScreenRoute) {
     return null;
   }
