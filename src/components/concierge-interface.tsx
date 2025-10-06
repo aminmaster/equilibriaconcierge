@@ -1,6 +1,3 @@
-Let me fix the UI issues with the command center and button positioning:
-
-<dyad-write path="src/components/concierge-interface.tsx" description="Fix button positioning and sizing">
 "use client";
 
 import { useState, useRef, useEffect } from "react";
