@@ -22,7 +22,6 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
   const [message, setMessage] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [aiResponse, setAiResponse] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { streamMessage, cancelStream, isLoading, error } = useChat();
 
@@ -31,11 +30,13 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
     if (!message.trim() || isLoading) return;
     
     try {
-      await streamMessage(message, (chunk) => {
-        setAiResponse(prev => prev + chunk);
+      // We still stream the message but don't need to capture the chunks here
+      // The conversation log will handle displaying the response
+      await streamMessage(message, () => {
+        // We don't need to do anything with the chunks here
+        // The conversation log will automatically update
       });
-      setMessage("");
-      setAiResponse("");
+      setMessage(""); // Only reset the message input
     } catch (err) {
       console.error("Error sending message:", err);
     }
@@ -182,12 +183,6 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
           {error && (
             <div className="mt-2 text-sm text-destructive">
               Error: {error}
-            </div>
-          )}
-          
-          {aiResponse && (
-            <div className="mt-2 p-2 bg-muted rounded-lg">
-              <div className="whitespace-pre-wrap">{aiResponse}</div>
             </div>
           )}
         </div>
