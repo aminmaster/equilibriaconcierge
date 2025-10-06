@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -21,9 +21,11 @@ import {
 import { 
   Settings, 
   Save, 
-  RotateCcw 
+  RotateCcw,
+  Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 export function ModelConfigTab() {
   const { toast } = useToast();
@@ -34,6 +36,72 @@ export function ModelConfigTab() {
     temperature: 0.7,
     maxTokens: 2048,
   });
+  const [embeddingModels, setEmbeddingModels] = useState<string[]>([
+    "text-embedding-3-large",
+    "text-embedding-3-small",
+    "text-embedding-ada-002"
+  ]);
+  const [loadingModels, setLoadingModels] = useState(false);
+
+  // Fetch available embedding models from OpenAI
+  const fetchEmbeddingModels = async () => {
+    setLoadingModels(true);
+    try {
+      // Get OpenAI API key from database
+      const { data, error } = await supabase
+        .from('api_keys')
+        .select('api_key')
+        .eq('provider', 'openai')
+        .single();
+
+      if (error) throw error;
+      if (!data) {
+        toast({
+          title: "API Key Not Found",
+          description: "Please add an OpenAI API key to fetch available models.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Fetch models from OpenAI API
+      const response = await fetch('https://api.openai.com/v1/models', {
+        headers: {
+          'Authorization': `Bearer ${data.api_key}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      
+      // Filter for embedding models
+      const embeddingModels = result.data
+        .filter((model: any) => model.id.includes('embedding'))
+        .map((model: any) => model.id)
+        .sort();
+      
+      if (embeddingModels.length > 0) {
+        setEmbeddingModels(embeddingModels);
+        toast({
+          title: "Models Loaded",
+          description: `Found ${embeddingModels.length} embedding models.`,
+        });
+      }
+    } catch (error: any) {
+      console.error("Error fetching models:", error);
+      toast({
+        title: "Failed to Load Models",
+        description: error.message || "Could not fetch embedding models from OpenAI.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingModels(false);
+    }
+  };
 
   const handleSave = () => {
     // In a real implementation, this would save to the database
@@ -68,7 +136,21 @@ export function ModelConfigTab() {
       <CardContent className="space-y-6">
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Embedding Model</Label>
+            <div className="flex justify-between items-center">
+              <Label>Embedding Model</Label>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={fetchEmbeddingModels}
+                disabled={loadingModels}
+              >
+                {loadingModels ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Refresh"
+                )}
+              </Button>
+            </div>
             <Select 
               value={config.embeddingModel} 
               onValueChange={(value) => setConfig({...config, embeddingModel: value})}
@@ -77,9 +159,11 @@ export function ModelConfigTab() {
                 <SelectValue placeholder="Select embedding model" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="text-embedding-3-large">text-embedding-3-large</SelectItem>
-                <SelectItem value="text-embedding-3-small">text-embedding-3-small</SelectItem>
-                <SelectItem value="text-embedding-ada-002">text-embedding-ada-002</SelectItem>
+                {embeddingModels.map((model) => (
+                  <SelectItem key={model} value={model}>
+                    {model}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <p className="text-sm text-muted-foreground">
