@@ -51,8 +51,8 @@ export function ConversationCanvas() {
               ))}
             </div>
           </div>
-          <h3 className="text-xs font-semibold mb-0.5">Visual Knowledge Map</h3>
-          <p className="text-muted-foreground text-xs">
+          <h3 className="text-xs font-semibold mb-0.5 break-words">Visual Knowledge Map</h3>
+          <p className="text-muted-foreground text-xs break-words">
             Relationships between concepts will appear here as you explore topics in your conversation.
           </p>
         </div>

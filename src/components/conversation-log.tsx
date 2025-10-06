@@ -82,7 +82,7 @@ export function ConversationLog() {
                   )}
                   
                   <div className={cn(
-                    "max-w-[85%] rounded-xl px-3 py-2",
+                    "max-w-[85%] rounded-xl px-3 py-2 break-words",
                     message.role === "user" 
                       ? "bg-primary text-primary-foreground rounded-tr-md" 
                       : "bg-muted rounded-tl-md"
@@ -114,45 +114,45 @@ export function ConversationLog() {
                             className={cn(
                               "h-3 w-3",
                               feedback[message.id] === "down" && "text-red-500"
-                            )} 
-                          />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-6 w-6"
-                        >
-                          <Star className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-6 w-6"
-                        >
-                          <Edit className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-6 w-6"
-                        >
-                          <MoreHorizontal className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {message.role === "user" && (
-                    <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
-                      <span className="text-[0.6rem] font-bold">U</span>
+                          )} 
+                        />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                      >
+                        <Star className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                      >
+                        <Edit className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                      >
+                        <MoreHorizontal className="h-3 w-3" />
+                      </Button>
                     </div>
                   )}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </ScrollArea>
-    </div>
-  );
+                
+                {message.role === "user" && (
+                  <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+                    <span className="text-[0.6rem] font-bold">U</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </ScrollArea>
+  </div>
+);
 }
