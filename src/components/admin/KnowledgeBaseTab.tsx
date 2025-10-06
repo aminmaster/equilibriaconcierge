@@ -126,7 +126,12 @@ export function KnowledgeBaseTab() {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       
-      const response = await fetch('https://jmxemujffofqpqrxajlb.supabase.co/functions/v1/ingest', {
+      const projectId = "jmxemujffofqpqrxajlb";
+      const functionUrl = `https://${projectId}.supabase.co/functions/v1/ingest`;
+      
+      console.log("Calling ingest function with sourceId:", data.id);
+      
+      const response = await fetch(functionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -137,14 +142,23 @@ export function KnowledgeBaseTab() {
         })
       });
       
+      console.log("Ingest function response status:", response.status);
+      console.log("Ingest function response ok?", response.ok);
+      
       if (!response.ok) {
-        throw new Error(`Ingestion failed: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error("Ingest function error response:", errorText);
+        throw new Error(`Ingestion failed: ${response.statusText} - ${errorText}`);
       }
+      
+      const result = await response.json();
+      console.log("Ingest function result:", result);
       
       // Reset form
       setFile(null);
       setUrl("");
     } catch (error: any) {
+      console.error("Ingestion error:", error);
       toast({
         title: "Ingestion failed",
         description: error.message || "Failed to start knowledge ingestion process.",

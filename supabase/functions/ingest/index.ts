@@ -7,6 +7,9 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  console.log("Ingest function called with method:", req.method);
+  console.log("Request headers:", [...req.headers.entries()]);
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -18,14 +21,25 @@ serve(async (req) => {
     )
     
     const authHeader = req.headers.get('Authorization')
+    console.log("Auth header present:", !!authHeader);
+    
     if (!authHeader) {
+      console.log("No authorization header found");
       return new Response('Unauthorized', { 
         status: 401, 
         headers: corsHeaders 
       })
     }
     
-    const { sourceId } = await req.json()
+    const body = await req.json();
+    console.log("Request body:", body);
+    
+    const { sourceId } = body;
+    
+    if (!sourceId) {
+      console.log("No sourceId provided in request body");
+      throw new Error("sourceId is required");
+    }
     
     // Get the knowledge source
     const { data: source, error: sourceError } = await supabaseClient
@@ -34,11 +48,15 @@ serve(async (req) => {
       .eq('id', sourceId)
       .single()
     
+    console.log("Source data:", source);
+    console.log("Source error:", sourceError);
+    
     if (sourceError) {
       throw new Error(`Failed to fetch source: ${sourceError.message}`)
     }
     
     // Update status to processing
+    console.log("Updating source status to processing");
     const { error: updateError } = await supabaseClient
       .from('knowledge_sources')
       .update({ status: 'processing', updated_at: new Date().toISOString() })
@@ -50,6 +68,7 @@ serve(async (req) => {
     
     // Process the document based on its type
     if (source.type === 'url') {
+      console.log("Processing URL source:", source.url);
       // For URL sources, fetch the content
       const response = await fetch(source.url)
       if (!response.ok) {
@@ -57,8 +76,10 @@ serve(async (req) => {
       }
       
       const content = await response.text()
+      console.log("URL content fetched, length:", content.length);
       await processDocumentContent(supabaseClient, sourceId, content, source.name)
     } else if (source.type === 'file') {
+      console.log("Processing file source");
       // For file sources, we would need to retrieve the file from storage
       // This is a simplified example - in a real implementation, you would
       // retrieve the file from Supabase Storage or another storage service
@@ -68,6 +89,7 @@ serve(async (req) => {
     }
     
     // Update status to completed
+    console.log("Updating source status to completed");
     await supabaseClient
       .from('knowledge_sources')
       .update({ status: 'completed', updated_at: new Date().toISOString() })
@@ -77,6 +99,8 @@ serve(async (req) => {
       message: `Successfully processed knowledge source: ${source.name}`,
       sourceId: source.id
     }
+    
+    console.log("Ingest function completed successfully:", data);
     
     return new Response(
       JSON.stringify(data),
@@ -117,6 +141,8 @@ serve(async (req) => {
 
 // Helper function to process document content
 async function processDocumentContent(supabaseClient: any, sourceId: string, content: string, sourceName: string) {
+  console.log("Processing document content for source:", sourceId);
+  
   // In a real implementation, you would:
   // 1. Split the document into chunks
   // 2. Generate embeddings for each chunk using OpenAI
@@ -124,9 +150,11 @@ async function processDocumentContent(supabaseClient: any, sourceId: string, con
   
   // For demonstration, we'll create a simple chunk
   const chunks = splitIntoChunks(content, 1000) // Split into ~1000 character chunks
+  console.log("Split content into", chunks.length, "chunks");
   
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i]
+    console.log("Processing chunk", i, "length:", chunk.length);
     
     // Generate embedding (this is a placeholder - in reality you'd call OpenAI API)
     // For demo purposes, we'll create a mock embedding
@@ -151,6 +179,8 @@ async function processDocumentContent(supabaseClient: any, sourceId: string, con
       throw new Error(`Failed to insert document chunk: ${docError.message}`)
     }
   }
+  
+  console.log("Document processing completed for source:", sourceId);
 }
 
 // Simple function to split text into chunks
