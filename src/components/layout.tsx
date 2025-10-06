@@ -5,6 +5,7 @@ import { useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
+import { CommandCenter } from "@/components/command-center";
 import { cn } from "@/lib/utils";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           )}>
             {children}
           </main>
+          <CommandCenter />
         </div>
       </TooltipProvider>
     </QueryClientProvider>
