@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -83,7 +83,7 @@ export function ModelConfigTab() {
     model: "text-embedding-3-large",
   });
   
-  const [availableProviders, setAvailableProviders] = useState<string[]>(["openrouter"]);
+  const [availableProviders, setAvailableProviders] = useState<string[]>([]);
   const [generationModels, setGenerationModels] = useState<string[]>(
     DEFAULT_PROVIDER_MODELS.openrouter
   );
@@ -92,9 +92,11 @@ export function ModelConfigTab() {
   );
   const [loadingGenerationModels, setLoadingGenerationModels] = useState(false);
   const [loadingEmbeddingModels, setLoadingEmbeddingModels] = useState(false);
+  const [loadingProviders, setLoadingProviders] = useState(true);
 
   // Load available providers based on saved API keys
   const loadAvailableProviders = async () => {
+    setLoadingProviders(true);
     try {
       // Get all API keys from database
       const { data, error } = await supabase
@@ -107,23 +109,37 @@ export function ModelConfigTab() {
       const providers = [...new Set(data.map((key: any) => key.provider))];
       setAvailableProviders(providers);
       
-      // If current providers are not available, reset to first available
+      // If we have providers, set the first one as default if current provider isn't available
       if (providers.length > 0) {
+        // For generation config
         if (!providers.includes(generationConfig.provider)) {
+          const newProvider = providers[0];
           setGenerationConfig(prev => ({
             ...prev,
-            provider: providers[0],
-            model: DEFAULT_PROVIDER_MODELS[providers[0] as keyof typeof DEFAULT_PROVIDER_MODELS]?.[0] || ""
+            provider: newProvider,
+            model: DEFAULT_PROVIDER_MODELS[newProvider as keyof typeof DEFAULT_PROVIDER_MODELS]?.[0] || ""
           }));
+          
+          // Load models for the new provider
+          if (activeTab === "generation") {
+            loadGenerationModelsForProvider(newProvider);
+          }
         }
         
+        // For embedding config
         if (!providers.includes(embeddingConfig.provider)) {
+          const newProvider = providers.includes("openai") ? "openai" : providers[0];
           setEmbeddingConfig(prev => ({
             ...prev,
-            provider: providers[0],
-            model: DEFAULT_EMBEDDING_MODELS[providers[0] as keyof typeof DEFAULT_EMBEDDING_MODELS]?.[0] || 
+            provider: newProvider,
+            model: DEFAULT_EMBEDDING_MODELS[newProvider as keyof typeof DEFAULT_EMBEDDING_MODELS]?.[0] || 
                    DEFAULT_EMBEDDING_MODELS.openai?.[0] || ""
           }));
+          
+          // Load models for the new provider
+          if (activeTab === "embedding") {
+            loadEmbeddingModelsForProvider(newProvider);
+          }
         }
       }
     } catch (error: any) {
@@ -133,8 +149,15 @@ export function ModelConfigTab() {
         description: error.message || "Could not load available providers.",
         variant: "destructive",
       });
+    } finally {
+      setLoadingProviders(false);
     }
   };
+
+  // Load available providers on component mount
+  useEffect(() => {
+    loadAvailableProviders();
+  }, []);
 
   // Load generation models when provider changes
   const loadGenerationModelsForProvider = async (provider: string) => {
@@ -394,6 +417,9 @@ export function ModelConfigTab() {
       provider: provider,
       model: DEFAULT_PROVIDER_MODELS[provider as keyof typeof DEFAULT_PROVIDER_MODELS]?.[0] || ""
     }));
+    
+    // Load models for the new provider
+    loadGenerationModelsForProvider(provider);
   };
 
   // Update embedding models when provider changes
@@ -404,6 +430,9 @@ export function ModelConfigTab() {
       model: DEFAULT_EMBEDDING_MODELS[provider as keyof typeof DEFAULT_EMBEDDING_MODELS]?.[0] || 
              DEFAULT_EMBEDDING_MODELS.openai?.[0] || ""
     }));
+    
+    // Load models for the new provider
+    loadEmbeddingModelsForProvider(provider);
   };
 
   return (
@@ -442,6 +471,7 @@ export function ModelConfigTab() {
                 <Select 
                   value={generationConfig.provider} 
                   onValueChange={handleGenerationProviderChange}
+                  disabled={loadingProviders}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select generation provider" />
@@ -472,7 +502,7 @@ export function ModelConfigTab() {
                       variant="ghost" 
                       size="sm" 
                       onClick={() => loadGenerationModelsForProvider(generationConfig.provider)}
-                      disabled={loadingGenerationModels}
+                      disabled={loadingGenerationModels || loadingProviders}
                     >
                       {loadingGenerationModels ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -485,7 +515,7 @@ export function ModelConfigTab() {
                 <Select 
                   value={generationConfig.model} 
                   onValueChange={(value) => setGenerationConfig({...generationConfig, model: value})}
-                  disabled={loadingGenerationModels}
+                  disabled={loadingGenerationModels || loadingProviders}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select generation model" />
@@ -551,6 +581,7 @@ export function ModelConfigTab() {
                 <Select 
                   value={embeddingConfig.provider} 
                   onValueChange={handleEmbeddingProviderChange}
+                  disabled={loadingProviders}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select embedding provider" />
@@ -581,7 +612,7 @@ export function ModelConfigTab() {
                       variant="ghost" 
                       size="sm" 
                       onClick={() => loadEmbeddingModelsForProvider(embeddingConfig.provider)}
-                      disabled={loadingEmbeddingModels}
+                      disabled={loadingEmbeddingModels || loadingProviders}
                     >
                       {loadingEmbeddingModels ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -594,7 +625,7 @@ export function ModelConfigTab() {
                 <Select 
                   value={embeddingConfig.model} 
                   onValueChange={(value) => setEmbeddingConfig({...embeddingConfig, model: value})}
-                  disabled={loadingEmbeddingModels}
+                  disabled={loadingEmbeddingModels || loadingProviders}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select embedding model" />
