@@ -59,7 +59,7 @@ export default function Concierge() {
           <Panel 
             defaultSize={defaultLayout[1]} 
             minSize={20}
-            className="relative"
+            className="relative flex flex-col"
           >
             <ConversationCanvas />
           </Panel>

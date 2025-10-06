@@ -25,14 +25,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        <div className={cn(
-          "relative min-h-screen bg-background",
-          isFullScreenRoute && isMounted ? "h-screen overflow-hidden" : "h-auto"
-        )}>
-          <main className={cn(
-            "relative",
-            isFullScreenRoute ? "h-[calc(100vh-4rem)]" : "pb-20" // Adjust height to account for command center
-          )}>
+        <div className="relative min-h-screen bg-background">
+          <main className="relative">
             {children}
           </main>
           <CommandCenter />
