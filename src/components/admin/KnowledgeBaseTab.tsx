@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -36,6 +36,7 @@ export function KnowledgeBaseTab() {
   const [loading, setLoading] = useState(true);
   const [file, setFile] = useState<File | null>(null);
   const [url, setUrl] = useState("");
+  const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
 
   // Load knowledge sources
   const loadKnowledgeSources = async () => {
@@ -47,14 +48,33 @@ export function KnowledgeBaseTab() {
     
     if (!error && data) {
       setSources(data);
+      
+      // If there are any processing sources, set up auto-refresh
+      const processingSources = data.some((source: KnowledgeSource) => 
+        source.status === 'processing' || source.status === 'pending'
+      );
+      
+      if (processingSources && !refreshInterval) {
+        const interval = setInterval(loadKnowledgeSources, 5000); // Refresh every 5 seconds
+        setRefreshInterval(interval);
+      } else if (!processingSources && refreshInterval) {
+        clearInterval(refreshInterval);
+        setRefreshInterval(null);
+      }
     }
     setLoading(false);
   };
 
-  // Load sources on component mount
-  useState(() => {
+  // Load sources on component mount and clean up interval on unmount
+  useEffect(() => {
     loadKnowledgeSources();
-  });
+    
+    return () => {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
+    };
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -91,9 +111,35 @@ export function KnowledgeBaseTab() {
         description: "Your knowledge base is being processed. This may take a few minutes.",
       });
       
-      // In a real implementation, we would call the ingest edge function here
-      // For now, we'll just add it to the list
-      setSources([data, ...sources]);
+      // Add to the list immediately
+      if (data) {
+        setSources([data, ...sources]);
+      }
+      
+      // Start auto-refresh if not already started
+      if (!refreshInterval) {
+        const interval = setInterval(loadKnowledgeSources, 5000);
+        setRefreshInterval(interval);
+      }
+      
+      // Call the ingest function
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
+      const response = await fetch('https://jmxemujffofqpqrxajlb.supabase.co/functions/v1/ingest', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        },
+        body: JSON.stringify({
+          sourceId: data.id
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Ingestion failed: ${response.statusText}`);
+      }
       
       // Reset form
       setFile(null);
