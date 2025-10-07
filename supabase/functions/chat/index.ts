@@ -6,6 +6,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Input validation functions
+function validateString(value: any, maxLength: number = 10000): boolean {
+  return typeof value === 'string' && value.length > 0 && value.length <= maxLength
+}
+
+function validateUUID(value: any): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  return typeof value === 'string' && uuidRegex.test(value)
+}
+
 // Simple input sanitization function
 function sanitizeInput(input: string): string {
   // Remove potentially dangerous characters
@@ -18,65 +28,112 @@ function sanitizeInput(input: string): string {
     .trim();
 }
 
-// API key validation function
-function validateApiKey(apiKey: string): boolean {
-  // Basic validation - in practice, check against database
-  return typeof apiKey === 'string' && apiKey.length >= 20 && apiKey.length <= 100;
+// Rate limiting using in-memory store (in production, use Redis)
+const rateLimitStore = new Map<string, { count: number; timestamp: number }>()
+
+function isRateLimited(identifier: string, maxRequests: number = 10, windowMs: number = 60000): boolean {
+  const now = Date.now()
+  const windowStart = now - windowMs
+  const record = rateLimitStore.get(identifier)
+
+  if (!record || record.timestamp < windowStart) {
+    // Reset the count for this identifier
+    rateLimitStore.set(identifier, { count: 1, timestamp: now })
+    return false
+  }
+
+  if (record.count >= maxRequests) {
+    // Rate limit exceeded
+    return true
+  }
+
+  // Increment the count
+  rateLimitStore.set(identifier, { count: record.count + 1, timestamp: now })
+  return false
 }
 
 serve(async (req) => {
-  console.log("Chat function called with method:", req.method);
-  console.log("Request headers:", [...req.headers.entries()]);
+  console.log("Chat function called with method:", req.method)
+  console.log("Request headers:", [...req.headers.entries()])
   
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
   
   try {
+    // Rate limiting check
+    const clientIP = req.headers.get('x-forwarded-for') || 'unknown'
+    if (isRateLimited(`chat:${clientIP}`)) {
+      return new Response(
+        JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 429
+        }
+      )
+    }
+    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
     
     const authHeader = req.headers.get('Authorization')
-    console.log("Auth header present:", !!authHeader);
+    console.log("Auth header present:", !!authHeader)
     
     // We still try to get the user, but don't require authentication
-    let userId = null;
+    let userId = null
     if (authHeader) {
       const token = authHeader.replace('Bearer ', '')
-      console.log("Token extracted from header");
+      console.log("Token extracted from header")
       
       const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token)
       
       if (!userError && user) {
-        console.log("User verified:", user.id);
-        userId = user.id;
+        console.log("User verified:", user.id)
+        userId = user.id
       } else {
-        console.log("Failed to verify user, continuing as anonymous");
+        console.log("Failed to verify user, continuing as anonymous")
       }
     } else {
-      console.log("No auth header, continuing as anonymous");
+      console.log("No auth header, continuing as anonymous")
     }
     
-    const requestBody = await req.json();
+    const requestBody = await req.json()
     const { 
       message, 
       conversationId, 
       generationProvider,
       generationModel
-    } = requestBody;
+    } = requestBody
     
-    console.log("Request body:", requestBody);
-    console.log("Parsed parameters:", { message, conversationId, generationProvider, generationModel });
+    console.log("Request body:", requestBody)
+    console.log("Parsed parameters:", { message, conversationId, generationProvider, generationModel })
+    
+    // Input validation
+    if (!validateString(message, 5000)) {
+      throw new Error("Invalid message: must be a string between 1 and 5000 characters")
+    }
+    
+    if (!validateUUID(conversationId)) {
+      throw new Error("Invalid conversation ID: must be a valid UUID")
+    }
+    
+    if (!validateString(generationProvider, 50)) {
+      throw new Error("Invalid generation provider: must be a string between 1 and 50 characters")
+    }
+    
+    if (!validateString(generationModel, 100)) {
+      throw new Error("Invalid generation model: must be a string between 1 and 100 characters")
+    }
     
     // Sanitize inputs
-    const sanitizedMessage = sanitizeInput(message);
-    console.log("Sanitized message:", sanitizedMessage);
+    const sanitizedMessage = sanitizeInput(message)
+    console.log("Sanitized message:", sanitizedMessage)
     
     // Validate conversation ID
     if (!conversationId || typeof conversationId !== 'string') {
-      throw new Error("Invalid conversation ID");
+      throw new Error("Invalid conversation ID")
     }
     
     // Get conversation history
@@ -86,8 +143,8 @@ serve(async (req) => {
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true })
     
-    console.log("Messages fetched:", messages?.length || 0);
-    console.log("Messages error:", messagesError);
+    console.log("Messages fetched:", messages?.length || 0)
+    console.log("Messages error:", messagesError)
     
     if (messagesError) {
       throw new Error(`Failed to fetch messages: ${messagesError.message}`)
@@ -100,18 +157,18 @@ serve(async (req) => {
       .eq('type', 'embedding')
       .single()
     
-    let effectiveEmbeddingProvider = 'openai';
-    let effectiveEmbeddingModel = 'text-embedding-3-large';
+    let effectiveEmbeddingProvider = 'openai'
+    let effectiveEmbeddingModel = 'text-embedding-3-large'
     
     if (!embeddingConfigError && embeddingConfig) {
-      effectiveEmbeddingProvider = embeddingConfig.provider;
-      effectiveEmbeddingModel = embeddingConfig.model;
+      effectiveEmbeddingProvider = embeddingConfig.provider
+      effectiveEmbeddingModel = embeddingConfig.model
     }
     
     console.log("Effective embedding models:", { 
       embeddingProvider: effectiveEmbeddingProvider, 
       embeddingModel: effectiveEmbeddingModel 
-    });
+    })
     
     // Get API key for embedding provider
     const { data: embeddingKeyData, error: embeddingKeyError } = await supabaseClient
@@ -121,21 +178,21 @@ serve(async (req) => {
       .limit(1)
       .single()
     
-    console.log("Embedding key data:", !!embeddingKeyData);
-    console.log("Embedding key error:", embeddingKeyError);
+    console.log("Embedding key data:", !!embeddingKeyData)
+    console.log("Embedding key error:", embeddingKeyError)
     
     if (embeddingKeyError || !embeddingKeyData) {
-      console.warn('Embedding API key not configured, proceeding without knowledge base');
+      console.warn('Embedding API key not configured, proceeding without knowledge base')
       // Continue without knowledge base if no API key
     }
     
-    let context = "No relevant documents found in the knowledge base.";
+    let context = "No relevant documents found in the knowledge base."
     
     // Only try to search knowledge base if we have an API key
     if (embeddingKeyData) {
       try {
         // Create embedding for the query
-        let embeddingResponse;
+        let embeddingResponse
         if (effectiveEmbeddingProvider === 'openai') {
           embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
             method: 'POST',
@@ -163,20 +220,20 @@ serve(async (req) => {
           })
         }
         
-        console.log("Embeddings response status:", embeddingResponse.status);
+        console.log("Embeddings response status:", embeddingResponse.status)
         
         if (!embeddingResponse.ok) {
-          const errorText = await embeddingResponse.text();
-          console.error("Embedding API error:", errorText);
+          const errorText = await embeddingResponse.text()
+          console.error("Embedding API error:", errorText)
           throw new Error(`Embedding API error: ${embeddingResponse.statusText} - ${errorText}`)
         }
         
         const embeddingData = await embeddingResponse.json()
         const queryEmbedding = embeddingData.data[0].embedding
-        console.log("Query embedding generated, dimension:", queryEmbedding.length);
+        console.log("Query embedding generated, dimension:", queryEmbedding.length)
         
         // Search for relevant documents using the correct RPC function
-        console.log("Searching for documents with embedding");
+        console.log("Searching for documents with embedding")
         const { data: documents, error: documentsError } = await supabaseClient
           .rpc('match_documents', {
             query_embedding: queryEmbedding,
@@ -184,24 +241,24 @@ serve(async (req) => {
             match_count: 5
           })
         
-        console.log("Documents found:", documents?.length || 0);
-        console.log("Documents error:", documentsError);
-        console.log("Documents data:", JSON.stringify(documents, null, 2));
+        console.log("Documents found:", documents?.length || 0)
+        console.log("Documents error:", documentsError)
+        console.log("Documents data:", JSON.stringify(documents, null, 2))
         
         if (documentsError) {
-          console.error("Document search error:", documentsError);
+          console.error("Document search error:", documentsError)
           // Don't throw error, just continue without context
         }
         
         // Construct context from retrieved documents
         if (documents && documents.length > 0) {
           context = documents.map((doc: any) => doc.content).join('\n\n')
-          console.log("Context constructed from documents, length:", context.length);
+          console.log("Context constructed from documents, length:", context.length)
         } else {
-          console.log("No relevant documents found");
+          console.log("No relevant documents found")
         }
       } catch (embeddingError) {
-        console.error("Error during embedding/document search:", embeddingError);
+        console.error("Error during embedding/document search:", embeddingError)
         // Continue without context if embedding fails
       }
     }
@@ -224,7 +281,7 @@ serve(async (req) => {
     
     const allMessages = [systemMessage, ...conversationMessages, userMessage]
     
-    console.log("Messages sent to LLM:", JSON.stringify(allMessages, null, 2));
+    console.log("Messages sent to LLM:", JSON.stringify(allMessages, null, 2))
     
     // Get the referer from the request or use a default
     const referer = req.headers.get('Referer') || 'http://localhost:3000'
@@ -238,20 +295,20 @@ serve(async (req) => {
       .limit(1)
       .single()
     
-    console.log("Generation key data:", !!generationKeyData);
-    console.log("Generation key error:", generationKeyError);
+    console.log("Generation key data:", !!generationKeyData)
+    console.log("Generation key error:", generationKeyError)
     
     if (generationKeyError || !generationKeyData) {
       throw new Error(`${generationProvider} API key not configured`)
     }
     
-    // Validate API key
-    if (!validateApiKey(generationKeyData.api_key)) {
+    // Validate API key format
+    if (!generationKeyData.api_key || generationKeyData.api_key.length < 20) {
       throw new Error("Invalid API key format")
     }
     
     // Call the appropriate API based on the provider
-    let apiResponse;
+    let apiResponse
     if (generationProvider === 'openrouter') {
       apiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
@@ -282,7 +339,7 @@ serve(async (req) => {
       })
     } else if (generationProvider === 'xai') {
       // Handle xAI specifically - use the correct endpoint and model name
-      const xaiModel = generationModel.includes('grok') ? 'grok-beta' : generationModel;
+      const xaiModel = generationModel.includes('grok') ? 'grok-beta' : generationModel
       
       apiResponse = await fetch('https://api.x.ai/v1/chat/completions', {
         method: 'POST',
@@ -314,12 +371,12 @@ serve(async (req) => {
       })
     }
     
-    console.log("Generation API response status:", apiResponse?.status);
-    console.log("Using provider:", generationProvider, "with model:", generationModel);
+    console.log("Generation API response status:", apiResponse?.status)
+    console.log("Using provider:", generationProvider, "with model:", generationModel)
     
     if (!apiResponse?.ok) {
-      const errorText = await apiResponse?.text();
-      throw new Error(`API error: ${apiResponse?.statusText} - ${errorText}`);
+      const errorText = await apiResponse?.text()
+      throw new Error(`API error: ${apiResponse?.statusText} - ${errorText}`)
     }
     
     // Stream the response back to the client
@@ -330,13 +387,13 @@ serve(async (req) => {
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive'
       }
-    });
+    })
     
   } catch (error) {
-    console.error('Chat function error:', error);
+    console.error('Chat function error:', error)
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,
-    });
+    })
   }
-});
+})
