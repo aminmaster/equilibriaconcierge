@@ -1,6 +1,7 @@
 import { useState, useEffect, createContext, useContext } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { authRateLimiter } from "@/utils/security";
 
 // Define user type
 interface User {
@@ -133,6 +134,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signIn = async (email: string, password: string) => {
+    // Rate limiting
+    if (!authRateLimiter.isAllowed(`signin:${email}`)) {
+      toast({
+        title: "Too many requests",
+        description: "Please wait before trying again.",
+        variant: "destructive",
+      });
+      throw new Error("Rate limit exceeded");
+    }
+
     try {
       const result = await supabase.auth.signInWithPassword({ email, password });
       
@@ -168,6 +179,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signUp = async (email: string, password: string, name: string) => {
+    // Rate limiting
+    if (!authRateLimiter.isAllowed(`signup:${email}`)) {
+      toast({
+        title: "Too many requests",
+        description: "Please wait before trying again.",
+        variant: "destructive",
+      });
+      throw new Error("Rate limit exceeded");
+    }
+
     try {
       // Split name into first and last name
       const nameParts = name.trim().split(' ');

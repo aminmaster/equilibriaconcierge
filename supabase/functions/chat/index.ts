@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
+import { EdgeSecurity, SecurityContext } from '../../src/utils/edge-security.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,6 +16,10 @@ serve(async (req) => {
   }
   
   try {
+    // Security validation
+    const securityContext: SecurityContext = await EdgeSecurity.validateRequest(req);
+    console.log("Security context:", securityContext);
+    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -51,6 +56,15 @@ serve(async (req) => {
     
     console.log("Request body:", requestBody);
     console.log("Parsed parameters:", { message, conversationId, generationProvider, generationModel });
+    
+    // Sanitize inputs
+    const sanitizedMessage = EdgeSecurity.sanitizeInput(message);
+    console.log("Sanitized message:", sanitizedMessage);
+    
+    // Validate conversation ID
+    if (!conversationId || typeof conversationId !== 'string') {
+      throw new Error("Invalid conversation ID");
+    }
     
     // Get conversation history
     const { data: messages, error: messagesError } = await supabaseClient
@@ -117,7 +131,7 @@ serve(async (req) => {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              input: message,
+              input: sanitizedMessage,
               model: effectiveEmbeddingModel
             })
           })
@@ -130,7 +144,7 @@ serve(async (req) => {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              input: message,
+              input: sanitizedMessage,
               model: effectiveEmbeddingModel
             })
           })
@@ -192,7 +206,7 @@ serve(async (req) => {
     
     const userMessage = {
       role: 'user',
-      content: message
+      content: sanitizedMessage
     }
     
     const allMessages = [systemMessage, ...conversationMessages, userMessage]
@@ -216,6 +230,11 @@ serve(async (req) => {
     
     if (generationKeyError || !generationKeyData) {
       throw new Error(`${generationProvider} API key not configured`)
+    }
+    
+    // Validate API key
+    if (!EdgeSecurity.validateApiKey(generationKeyData.api_key)) {
+      throw new Error("Invalid API key format")
     }
     
     // Call the appropriate API based on the provider
@@ -287,7 +306,7 @@ serve(async (req) => {
     
     if (!apiResponse?.ok) {
       const errorText = await apiResponse?.text();
-      throw new Error(`API error: ${apiResponse?.statusText} - ${errorText}`)
+      throw new Error(`API error: ${apiResponse?.statusText} - ${errorText}`);
     }
     
     // Stream the response back to the client
@@ -298,13 +317,13 @@ serve(async (req) => {
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive'
       }
-    })
+    });
     
   } catch (error) {
-    console.error('Chat function error:', error)
+    console.error('Chat function error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,
-    })
+    });
   }
-})
+});
