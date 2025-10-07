@@ -55,11 +55,18 @@ export function EmbeddingConfigSection({
       if (!embeddingError && embeddingData) {
         const defaultModels = defaultEmbeddingModels[embeddingData.provider as keyof typeof defaultEmbeddingModels] || 
                              defaultEmbeddingModels.openai || [];
-        const defaultModel = defaultModels[0] || { model: "text-embedding-3-large", dimensions: 3072 };
+        
+        // Find the model in our available models or use default
+        let modelToUse = embeddingData.model || "text-embedding-3-large";
+        const modelExists = defaultModels.some(m => m.model === modelToUse);
+        
+        if (!modelExists && defaultModels.length > 0) {
+          modelToUse = defaultModels[0].model;
+        }
         
         const newConfig = {
           provider: embeddingData.provider || "openai",
-          model: embeddingData.model || defaultModel.model,
+          model: modelToUse,
         };
         
         console.log("Setting embedding config:", newConfig);
@@ -166,13 +173,13 @@ export function EmbeddingConfigSection({
       console.log("Setting OpenAI embedding models:", embeddingModels);
       setEmbeddingModels(embeddingModels);
       
-      // Update the current config with the first model if it matches
-      const firstModel = embeddingModels[0];
-      if (embeddingConfig.model === firstModel.model || 
-          (embeddingConfig.model === "text-embedding-3-large" && firstModel.model.includes("text-embedding-3-large"))) {
+      // Check if current model exists in the fetched models
+      const modelExists = embeddingModels.some(m => m.model === embeddingConfig.model);
+      if (!modelExists) {
+        // Set to first model if current model doesn't exist
         setEmbeddingConfig(prev => ({
           ...prev,
-          model: firstModel.model
+          model: embeddingModels[0].model
         }));
       }
     } else {
@@ -194,12 +201,14 @@ export function EmbeddingConfigSection({
     console.log("Changing embedding provider to:", provider);
     const defaultModels = defaultEmbeddingModels[provider as keyof typeof defaultEmbeddingModels] || 
                          defaultEmbeddingModels.openai || [];
-    const defaultModel = defaultModels[0] || { model: "text-embedding-3-large", dimensions: 3072 };
+    
+    // Set to first available model or default
+    const firstModel = defaultModels[0] || { model: "text-embedding-3-large", dimensions: 3072 };
     
     setEmbeddingConfig(prev => ({
       ...prev,
       provider: provider,
-      model: defaultModel.model
+      model: firstModel.model
     }));
     
     // Load models for the new provider
@@ -308,9 +317,10 @@ export function EmbeddingConfigSection({
           <div className="space-y-2">
             <Label>Dimensions</Label>
             <Input
-              type="number"
+              type="text"
               value={getCurrentModelDimensions()}
-              disabled
+              readOnly
+              className="bg-muted"
             />
             <p className="text-sm text-muted-foreground">
               Vector dimensions for embeddings (auto-detected)
