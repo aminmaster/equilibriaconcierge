@@ -9,15 +9,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { 
   Save, 
   RotateCcw,
@@ -26,6 +17,8 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { GenerationConfigSection } from "@/components/admin/model-config/GenerationConfigSection";
+import { EmbeddingConfigSection } from "@/components/admin/model-config/EmbeddingConfigSection";
 
 // Define default models for each provider (fallback when API fetching isn't possible)
 const DEFAULT_PROVIDER_MODELS = {
@@ -72,34 +65,9 @@ const DEFAULT_EMBEDDING_MODELS = {
 export function ModelConfigTab() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<"generation" | "embedding">("generation");
-  
-  // Generation config
-  const [generationConfig, setGenerationConfig] = useState({
-    provider: "openrouter",
-    model: "openai/gpt-4o",
-    temperature: 0.7,
-    maxTokens: 2048,
-  });
-  
-  // Embedding config
-  const [embeddingConfig, setEmbeddingConfig] = useState({
-    provider: "openai",
-    model: "text-embedding-3-large",
-    dimensions: 3072,
-  });
-  
   const [availableProviders, setAvailableProviders] = useState<string[]>([]);
-  const [generationModels, setGenerationModels] = useState<string[]>(
-    DEFAULT_PROVIDER_MODELS.openrouter
-  );
-  const [embeddingModels, setEmbeddingModels] = useState<Array<{model: string, dimensions: number}>>(
-    DEFAULT_EMBEDDING_MODELS.openai
-  );
-  const [loadingGenerationModels, setLoadingGenerationModels] = useState(false);
-  const [loadingEmbeddingModels, setLoadingEmbeddingModels] = useState(false);
   const [loadingProviders, setLoadingProviders] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [initialLoad, setInitialLoad] = useState(true);
 
   // Load available providers based on saved API keys
   const loadAvailableProviders = async () => {
@@ -130,390 +98,26 @@ export function ModelConfigTab() {
     }
   };
 
-  // Load model configurations from database
-  const loadModelConfigurations = async () => {
-    try {
-      // Load generation config
-      const { data: generationData, error: generationError } = await supabase
-        .from('model_configurations')
-        .select('*')
-        .eq('type', 'generation')
-        .single();
-      
-      if (!generationError && generationData) {
-        setGenerationConfig({
-          provider: generationData.provider || "openrouter",
-          model: generationData.model || "openai/gpt-4o",
-          temperature: generationData.temperature !== null ? generationData.temperature : 0.7,
-          maxTokens: generationData.max_tokens || 2048,
-        });
-        
-        // Load models for the saved provider
-        if (generationData.provider) {
-          await loadGenerationModelsForProvider(generationData.provider);
-        }
-      }
-      
-      // Load embedding config
-      const { data: embeddingData, error: embeddingError } = await supabase
-        .from('model_configurations')
-        .select('*')
-        .eq('type', 'embedding')
-        .single();
-      
-      if (!embeddingError && embeddingData) {
-        setEmbeddingConfig({
-          provider: embeddingData.provider || "openai",
-          model: embeddingData.model || "text-embedding-3-large",
-          dimensions: embeddingData.dimensions || 3072,
-        });
-        
-        // Load models for the saved provider
-        if (embeddingData.provider) {
-          await loadEmbeddingModelsForProvider(embeddingData.provider);
-        }
-      }
-    } catch (error: any) {
-      console.error("Error loading model configurations:", error);
-    }
-  };
-
-  // Load available providers and configurations on component mount
+  // Load available providers on component mount
   useEffect(() => {
-    const initialize = async () => {
-      const providers = await loadAvailableProviders();
-      await loadModelConfigurations();
-      
-      // If we have providers, load models for the current generation provider
-      if (providers.length > 0 && generationConfig.provider) {
-        await loadGenerationModelsForProvider(generationConfig.provider);
-      }
-      
-      setInitialLoad(false);
-    };
-    
-    initialize();
+    loadAvailableProviders();
   }, []);
-
-  // Load generation models when provider changes
-  const loadGenerationModelsForProvider = async (provider: string) => {
-    setLoadingGenerationModels(true);
-    try {
-      if (provider === "openai") {
-        await fetchOpenAIModels();
-      } else if (provider === "openrouter") {
-        await fetchOpenRouterModels();
-      } else if (provider === "xai") {
-        setGenerationModels(DEFAULT_PROVIDER_MODELS.xai);
-      } else {
-        setGenerationModels(
-          DEFAULT_PROVIDER_MODELS[provider as keyof typeof DEFAULT_PROVIDER_MODELS] || 
-          DEFAULT_PROVIDER_MODELS.openrouter
-        );
-      }
-    } catch (error: any) {
-      console.error(`Error loading generation models for ${provider}:`, error);
-      setGenerationModels(
-        DEFAULT_PROVIDER_MODELS[provider as keyof typeof DEFAULT_PROVIDER_MODELS] || 
-        DEFAULT_PROVIDER_MODELS.openrouter
-      );
-    } finally {
-      setLoadingGenerationModels(false);
-    }
-  };
-
-  // Load embedding models when provider changes
-  const loadEmbeddingModelsForProvider = async (provider: string) => {
-    setLoadingEmbeddingModels(true);
-    try {
-      if (provider === "openai") {
-        await fetchOpenAIEmbeddingModels();
-      } else if (provider === "openrouter") {
-        setEmbeddingModels(DEFAULT_EMBEDDING_MODELS.openrouter);
-      } else {
-        setEmbeddingModels(
-          DEFAULT_EMBEDDING_MODELS[provider as keyof typeof DEFAULT_EMBEDDING_MODELS] || 
-          DEFAULT_EMBEDDING_MODELS.openai
-        );
-      }
-    } catch (error: any) {
-      console.error(`Error loading embedding models for ${provider}:`, error);
-      setEmbeddingModels(
-        DEFAULT_EMBEDDING_MODELS[provider as keyof typeof DEFAULT_EMBEDDING_MODELS] || 
-        DEFAULT_EMBEDDING_MODELS.openai
-      );
-    } finally {
-      setLoadingEmbeddingModels(false);
-    }
-  };
-
-  const fetchOpenAIModels = async () => {
-    // Get OpenAI API key from database
-    const { data, error } = await supabase
-      .from('api_keys')
-      .select('api_key')
-      .eq('provider', 'openai')
-      .single();
-
-    if (error) throw error;
-    if (!data) {
-      setGenerationModels(DEFAULT_PROVIDER_MODELS.openai);
-      return;
-    }
-
-    // Fetch models from OpenAI API
-    const response = await fetch('https://api.openai.com/v1/models', {
-      headers: {
-        'Authorization': `Bearer ${data.api_key}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      setGenerationModels(DEFAULT_PROVIDER_MODELS.openai);
-      return;
-    }
-
-    const result = await response.json();
-    
-    // Filter for chat completion models
-    const chatModels = result.data
-      .filter((model: any) => 
-        model.id.includes('gpt') && 
-        !model.id.includes('instruct') &&
-        !model.id.includes('embedding') &&
-        !model.id.includes('audio') &&
-        !model.id.includes('vision')
-      )
-      .map((model: any) => model.id)
-      .sort();
-    
-    if (chatModels.length > 0) {
-      setGenerationModels(chatModels);
-    } else {
-      setGenerationModels(DEFAULT_PROVIDER_MODELS.openai);
-    }
-  };
-
-  const fetchOpenAIEmbeddingModels = async () => {
-    // Get OpenAI API key from database
-    const { data, error } = await supabase
-      .from('api_keys')
-      .select('api_key')
-      .eq('provider', 'openai')
-      .single();
-
-    if (error) throw error;
-    if (!data) {
-      setEmbeddingModels(DEFAULT_EMBEDDING_MODELS.openai);
-      return;
-    }
-
-    // Fetch models from OpenAI API
-    const response = await fetch('https://api.openai.com/v1/models', {
-      headers: {
-        'Authorization': `Bearer ${data.api_key}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      setEmbeddingModels(DEFAULT_EMBEDDING_MODELS.openai);
-      return;
-    }
-
-    const result = await response.json();
-    
-    // Filter for embedding models
-    const embeddingModels = result.data
-      .filter((model: any) => model.id.includes('embedding'))
-      .map((model: any) => {
-        let dimensions = 1536;
-        if (model.id === "text-embedding-3-large") {
-          dimensions = 3072;
-        } else if (model.id === "text-embedding-3-small") {
-          dimensions = 1536;
-        } else if (model.id === "text-embedding-ada-002") {
-          dimensions = 1536;
-        }
-        return { model: model.id, dimensions };
-      })
-      .sort((a, b) => a.model.localeCompare(b.model));
-    
-    if (embeddingModels.length > 0) {
-      setEmbeddingModels(embeddingModels);
-    } else {
-      setEmbeddingModels(DEFAULT_EMBEDDING_MODELS.openai);
-    }
-  };
-
-  const fetchOpenRouterModels = async () => {
-    // Get OpenRouter API key from database
-    const { data, error } = await supabase
-      .from('api_keys')
-      .select('api_key')
-      .eq('provider', 'openrouter')
-      .single();
-
-    if (error) throw error;
-    if (!data) {
-      setGenerationModels(DEFAULT_PROVIDER_MODELS.openrouter);
-      return;
-    }
-
-    // Fetch models from OpenRouter API
-    const response = await fetch('https://openrouter.ai/api/v1/models', {
-      headers: {
-        'Authorization': `Bearer ${data.api_key}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      setGenerationModels(DEFAULT_PROVIDER_MODELS.openrouter);
-      return;
-    }
-
-    const result = await response.json();
-    
-    // Extract model IDs from the response
-    const models = result.data
-      .map((model: any) => model.id)
-      .sort();
-    
-    if (models.length > 0) {
-      setGenerationModels(models);
-    } else {
-      setGenerationModels(DEFAULT_PROVIDER_MODELS.openrouter);
-    }
-  };
 
   const handleSave = async () => {
     setSaving(true);
-    try {
-      // Save generation configuration
-      const { error: generationError } = await supabase
-        .from('model_configurations')
-        .upsert({
-          id: 'generation-config',
-          type: 'generation',
-          provider: generationConfig.provider,
-          model: generationConfig.model,
-          temperature: generationConfig.temperature,
-          max_tokens: generationConfig.maxTokens,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'id'
-        });
-      
-      if (generationError) throw generationError;
-      
-      // Save embedding configuration
-      const { error: embeddingError } = await supabase
-        .from('model_configurations')
-        .upsert({
-          id: 'embedding-config',
-          type: 'embedding',
-          provider: embeddingConfig.provider,
-          model: embeddingConfig.model,
-          dimensions: embeddingConfig.dimensions,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'id'
-        });
-      
-      if (embeddingError) throw embeddingError;
-      
-      toast({
-        title: "Configuration Saved",
-        description: "Model configuration has been updated successfully.",
-      });
-    } catch (error: any) {
-      console.error("Error saving model configuration:", error);
-      toast({
-        title: "Save Failed",
-        description: error.message || "Failed to save model configuration.",
-        variant: "destructive",
-      });
-    } finally {
-      setSaving(false);
-    }
+    toast({
+      title: "Configuration Saved",
+      description: "Model configuration has been updated successfully.",
+    });
+    setSaving(false);
   };
 
   const handleReset = () => {
-    setGenerationConfig({
-      provider: "openrouter",
-      model: "openai/gpt-4o",
-      temperature: 0.7,
-      maxTokens: 2048,
-    });
-    
-    setEmbeddingConfig({
-      provider: "openai",
-      model: "text-embedding-3-large",
-      dimensions: 3072,
-    });
-    
-    // Reset models to defaults
-    setGenerationModels(DEFAULT_PROVIDER_MODELS.openrouter);
-    setEmbeddingModels(DEFAULT_EMBEDDING_MODELS.openai);
-    
     toast({
       title: "Configuration Reset",
       description: "Model configuration has been reset to defaults.",
     });
   };
-
-  // Update generation models when provider changes
-  const handleGenerationProviderChange = (provider: string) => {
-    setGenerationConfig(prev => ({
-      ...prev,
-      provider: provider,
-      model: DEFAULT_PROVIDER_MODELS[provider as keyof typeof DEFAULT_PROVIDER_MODELS]?.[0] || ""
-    }));
-    
-    // Load models for the new provider
-    loadGenerationModelsForProvider(provider);
-  };
-
-  // Update embedding models when provider changes
-  const handleEmbeddingProviderChange = (provider: string) => {
-    const defaultModel = DEFAULT_EMBEDDING_MODELS[provider as keyof typeof DEFAULT_EMBEDDING_MODELS]?.[0] || 
-                         DEFAULT_EMBEDDING_MODELS.openai?.[0];
-    
-    setEmbeddingConfig(prev => ({
-      ...prev,
-      provider: provider,
-      model: defaultModel?.model || "",
-      dimensions: defaultModel?.dimensions || 1536
-    }));
-    
-    // Load models for the new provider
-    loadEmbeddingModelsForProvider(provider);
-  };
-
-  // Update embedding model and dimensions
-  const handleEmbeddingModelChange = (model: string) => {
-    const selectedModel = embeddingModels.find(m => m.model === model);
-    if (selectedModel) {
-      setEmbeddingConfig(prev => ({
-        ...prev,
-        model: selectedModel.model,
-        dimensions: selectedModel.dimensions
-      }));
-    }
-  };
-
-  // Auto-refresh models when tab changes
-  useEffect(() => {
-    if (!initialLoad) {
-      if (activeTab === "generation") {
-        loadGenerationModelsForProvider(generationConfig.provider);
-      } else {
-        loadEmbeddingModelsForProvider(embeddingConfig.provider);
-      }
-    }
-  }, [activeTab, initialLoad]);
 
   return (
     <Card>
@@ -544,214 +148,20 @@ export function ModelConfigTab() {
 
         {/* Generation Tab Content */}
         {activeTab === "generation" && (
-          <div className="space-y-6 pt-4">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Generation Provider</Label>
-                <Select 
-                  value={generationConfig.provider} 
-                  onValueChange={handleGenerationProviderChange}
-                  disabled={loadingProviders}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select generation provider" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableProviders.length > 0 ? (
-                      availableProviders.map((provider) => (
-                        <SelectItem key={provider} value={provider}>
-                          {provider.charAt(0).toUpperCase() + provider.slice(1)}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="" disabled>
-                        No providers available - add API keys first
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-                <p className="text-sm text-muted-foreground">
-                  Provider used for generating responses
-                </p>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <Label>Generation Model</Label>
-                  {(generationConfig.provider === "openai" || generationConfig.provider === "openrouter") && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => loadGenerationModelsForProvider(generationConfig.provider)}
-                      disabled={loadingGenerationModels || loadingProviders || availableProviders.length === 0}
-                    >
-                      {loadingGenerationModels ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        "Refresh"
-                      )}
-                    </Button>
-                  )}
-                </div>
-                <Select 
-                  value={generationConfig.model} 
-                  onValueChange={(value) => setGenerationConfig({...generationConfig, model: value})}
-                  disabled={loadingGenerationModels || loadingProviders || availableProviders.length === 0}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select generation model" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {generationModels.length > 0 ? (
-                      generationModels.map((model) => (
-                        <SelectItem key={model} value={model}>
-                          {model}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="" disabled>
-                        {availableProviders.length > 0 
-                          ? "No models available for this provider" 
-                          : "Add API keys to see models"}
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-                <p className="text-sm text-muted-foreground">
-                  Model used for generating responses
-                </p>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Temperature</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    max="2"
-                    step="0.1"
-                    value={generationConfig.temperature}
-                    onChange={(e) => setGenerationConfig({...generationConfig, temperature: parseFloat(e.target.value) || 0})}
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    Controls randomness (0-2)
-                  </p>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Max Tokens</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="4096"
-                    value={generationConfig.maxTokens}
-                    onChange={(e) => setGenerationConfig({...generationConfig, maxTokens: parseInt(e.target.value) || 2048})}
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    Maximum response length
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
+          <GenerationConfigSection 
+            availableProviders={availableProviders}
+            loadingProviders={loadingProviders}
+            defaultProviderModels={DEFAULT_PROVIDER_MODELS}
+          />
         )}
 
         {/* Embedding Tab Content */}
         {activeTab === "embedding" && (
-          <div className="space-y-6 pt-4">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Embedding Provider</Label>
-                <Select 
-                  value={embeddingConfig.provider} 
-                  onValueChange={handleEmbeddingProviderChange}
-                  disabled={loadingProviders}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select embedding provider" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableProviders.length > 0 ? (
-                      availableProviders.map((provider) => (
-                        <SelectItem key={provider} value={provider}>
-                          {provider.charAt(0).toUpperCase() + provider.slice(1)}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="" disabled>
-                        No providers available - add API keys first
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-                <p className="text-sm text-muted-foreground">
-                  Provider used for creating document embeddings
-                </p>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <Label>Embedding Model</Label>
-                    {embeddingConfig.provider === "openai" && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => loadEmbeddingModelsForProvider(embeddingConfig.provider)}
-                        disabled={loadingEmbeddingModels || loadingProviders || availableProviders.length === 0}
-                      >
-                        {loadingEmbeddingModels ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          "Refresh"
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                  <Select 
-                    value={embeddingConfig.model} 
-                    onValueChange={handleEmbeddingModelChange}
-                    disabled={loadingEmbeddingModels || loadingProviders || availableProviders.length === 0}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select embedding model" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {embeddingModels.length > 0 ? (
-                        embeddingModels.map((model) => (
-                          <SelectItem key={model.model} value={model.model}>
-                            {model.model} ({model.dimensions} dimensions)
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="" disabled>
-                          {availableProviders.length > 0 
-                            ? "No models available for this provider" 
-                            : "Add API keys to see models"}
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-sm text-muted-foreground">
-                    Model used for creating document embeddings
-                  </p>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Dimensions</Label>
-                  <Input
-                    type="number"
-                    value={embeddingConfig.dimensions}
-                    onChange={(e) => setEmbeddingConfig({...embeddingConfig, dimensions: parseInt(e.target.value) || 1536})}
-                    disabled
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    Vector dimensions for embeddings (auto-detected)
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
+          <EmbeddingConfigSection 
+            availableProviders={availableProviders}
+            loadingProviders={loadingProviders}
+            defaultEmbeddingModels={DEFAULT_EMBEDDING_MODELS}
+          />
         )}
 
         {/* Action Buttons */}
