@@ -6,6 +6,26 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Simple decryption function (in production, use a proper encryption library)
+function decryptApiKey(encryptedKey: string, secretKey: string): string {
+  try {
+    // Decode from base64
+    const decoded = atob(encryptedKey);
+    
+    // Decrypt using XOR
+    let decrypted = '';
+    for (let i = 0; i < decoded.length; i++) {
+      const charCode = decoded.charCodeAt(i) ^ secretKey.charCodeAt(i % secretKey.length);
+      decrypted += String.fromCharCode(charCode);
+    }
+    
+    return decrypted;
+  } catch (error) {
+    console.error('Decryption error:', error);
+    throw new Error('Failed to decrypt API key');
+  }
+}
+
 // Rate limiting using in-memory store (in production, use Redis)
 const rateLimitStore = new Map<string, { count: number; timestamp: number }>()
 
@@ -113,8 +133,12 @@ serve(async (req) => {
       throw new Error(`${provider} API key not configured`)
     }
     
+    // Decrypt the API key
+    const ENCRYPTION_KEY = Deno.env.get('ENCRYPTION_KEY') || 'your-secret-encryption-key-32-chars'
+    const decryptedApiKey = decryptApiKey(apiKeyData.api_key, ENCRYPTION_KEY)
+    
     // Validate API key format
-    if (!apiKeyData.api_key || apiKeyData.api_key.length < 20) {
+    if (!decryptedApiKey || decryptedApiKey.length < 20) {
       throw new Error("Invalid API key format")
     }
     
@@ -126,7 +150,7 @@ serve(async (req) => {
       if (provider === 'openai') {
         const response = await fetch('https://api.openai.com/v1/models', {
           headers: {
-            'Authorization': `Bearer ${apiKeyData.api_key}`,
+            'Authorization': `Bearer ${decryptedApiKey}`,
             'Content-Type': 'application/json'
           }
         })
@@ -136,7 +160,7 @@ serve(async (req) => {
       } else if (provider === 'openrouter') {
         const response = await fetch('https://openrouter.ai/api/v1/models', {
           headers: {
-            'Authorization': `Bearer ${apiKeyData.api_key}`,
+            'Authorization': `Bearer ${decryptedApiKey}`,
             'Content-Type': 'application/json'
           }
         })
@@ -148,7 +172,7 @@ serve(async (req) => {
         const response = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
           headers: {
-            'x-api-key': apiKeyData.api_key,
+            'x-api-key': decryptedApiKey,
             'anthropic-version': '2023-06-01',
             'content-type': 'application/json'
           },
@@ -170,7 +194,7 @@ serve(async (req) => {
         // For xAI, test with a simple request
         const response = await fetch('https://api.x.ai/v1/models', {
           headers: {
-            'Authorization': `Bearer ${apiKeyData.api_key}`,
+            'Authorization': `Bearer ${decryptedApiKey}`,
             'Content-Type': 'application/json'
           }
         })

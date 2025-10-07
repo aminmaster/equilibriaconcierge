@@ -6,6 +6,26 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Simple decryption function (in production, use a proper encryption library)
+function decryptApiKey(encryptedKey: string, secretKey: string): string {
+  try {
+    // Decode from base64
+    const decoded = atob(encryptedKey);
+    
+    // Decrypt using XOR
+    let decrypted = '';
+    for (let i = 0; i < decoded.length; i++) {
+      const charCode = decoded.charCodeAt(i) ^ secretKey.charCodeAt(i % secretKey.length);
+      decrypted += String.fromCharCode(charCode);
+    }
+    
+    return decrypted;
+  } catch (error) {
+    console.error('Decryption error:', error);
+    throw new Error('Failed to decrypt API key');
+  }
+}
+
 // Input validation functions
 function validateString(value: any, maxLength: number = 10000): boolean {
   return typeof value === 'string' && value.length > 0 && value.length <= maxLength
@@ -191,13 +211,17 @@ serve(async (req) => {
     // Only try to search knowledge base if we have an API key
     if (embeddingKeyData) {
       try {
+        // Decrypt the API key
+        const ENCRYPTION_KEY = Deno.env.get('ENCRYPTION_KEY') || 'your-secret-encryption-key-32-chars'
+        const decryptedApiKey = decryptApiKey(embeddingKeyData.api_key, ENCRYPTION_KEY)
+        
         // Create embedding for the query
         let embeddingResponse
         if (effectiveEmbeddingProvider === 'openai') {
           embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${embeddingKeyData.api_key}`,
+              'Authorization': `Bearer ${decryptedApiKey}`,
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -210,7 +234,7 @@ serve(async (req) => {
           embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${embeddingKeyData.api_key}`,
+              'Authorization': `Bearer ${decryptedApiKey}`,
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -302,8 +326,12 @@ serve(async (req) => {
       throw new Error(`${generationProvider} API key not configured`)
     }
     
+    // Decrypt the generation API key
+    const ENCRYPTION_KEY = Deno.env.get('ENCRYPTION_KEY') || 'your-secret-encryption-key-32-chars'
+    const decryptedGenerationKey = decryptApiKey(generationKeyData.api_key, ENCRYPTION_KEY)
+    
     // Validate API key format
-    if (!generationKeyData.api_key || generationKeyData.api_key.length < 20) {
+    if (!decryptedGenerationKey || decryptedGenerationKey.length < 20) {
       throw new Error("Invalid API key format")
     }
     
@@ -313,7 +341,7 @@ serve(async (req) => {
       apiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${generationKeyData.api_key}`,
+          'Authorization': `Bearer ${decryptedGenerationKey}`,
           'HTTP-Referer': siteUrl,
           'X-Title': 'Conversational AI Platform',
           'Content-Type': 'application/json'
@@ -328,7 +356,7 @@ serve(async (req) => {
       apiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${generationKeyData.api_key}`,
+          'Authorization': `Bearer ${decryptedGenerationKey}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -344,7 +372,7 @@ serve(async (req) => {
       apiResponse = await fetch('https://api.x.ai/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${generationKeyData.api_key}`,
+          'Authorization': `Bearer ${decryptedGenerationKey}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -358,7 +386,7 @@ serve(async (req) => {
       apiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${generationKeyData.api_key}`,
+          'Authorization': `Bearer ${decryptedGenerationKey}`,
           'HTTP-Referer': siteUrl,
           'X-Title': 'Conversational AI Platform',
           'Content-Type': 'application/json'

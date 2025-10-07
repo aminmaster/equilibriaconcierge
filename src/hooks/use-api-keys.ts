@@ -4,6 +4,11 @@ import { useToast } from "@/hooks/use-toast";
 import { ApiKey } from "@/types/auth";
 import { apiCache } from "@/utils/cache";
 import { validateApiKey, apiRateLimiter } from "@/utils/security";
+import { encryptApiKey, decryptApiKey, maskApiKey } from "@/utils/encryption";
+
+// In a real application, this should be stored securely (e.g., environment variable)
+// For demonstration, we'll generate a key
+const ENCRYPTION_KEY = "your-secret-encryption-key-32-chars";
 
 const CACHE_KEY = "api_keys";
 
@@ -32,8 +37,13 @@ export const useApiKeys = () => {
         console.error("Error loading API keys:", error);
         setApiKeys([]);
       } else if (data) {
-        setApiKeys(data);
-        apiCache.set(CACHE_KEY, data);
+        // Decrypt API keys for use
+        const decryptedKeys = data.map((key: any) => ({
+          ...key,
+          api_key: decryptApiKey(key.api_key, ENCRYPTION_KEY)
+        }));
+        setApiKeys(decryptedKeys);
+        apiCache.set(CACHE_KEY, decryptedKeys);
       }
     } catch (error: any) {
       console.error("Error loading API keys:", error);
@@ -69,22 +79,31 @@ export const useApiKeys = () => {
     }
 
     try {
+      // Encrypt the API key before storing
+      const encryptedKey = encryptApiKey(key, ENCRYPTION_KEY);
+      
       const { data, error } = await supabase
         .from('api_keys')
-        .insert([{ provider, api_key: key }])
+        .insert([{ provider, api_key: encryptedKey }])
         .select();
       
       if (error) {
         throw new Error(error.message);
       } else if (data && data.length > 0) {
-        const updatedKeys = [data[0], ...apiKeys];
+        // Decrypt for immediate use
+        const decryptedKey = {
+          ...data[0],
+          api_key: key // Use original key for immediate use
+        };
+        
+        const updatedKeys = [decryptedKey, ...apiKeys];
         setApiKeys(updatedKeys);
         apiCache.set(CACHE_KEY, updatedKeys);
         toast({
           title: "API Key Added",
           description: `Successfully added API key for ${provider}.`,
         });
-        return data[0];
+        return decryptedKey;
       }
     } catch (error: any) {
       toast({
@@ -160,6 +179,9 @@ export const useApiKeys = () => {
       if (error) throw error;
       if (!data) throw new Error("API key not found");
       
+      // Decrypt the API key for testing
+      const decryptedKey = decryptApiKey(data.api_key, ENCRYPTION_KEY);
+      
       // In a real implementation, you would test the API key with the provider
       // For now, we'll just return a success message
       toast({
@@ -178,12 +200,21 @@ export const useApiKeys = () => {
     }
   };
 
+  // Get masked API keys for display (without revealing the actual keys)
+  const getMaskedApiKeys = () => {
+    return apiKeys.map(key => ({
+      ...key,
+      api_key: maskApiKey(key.api_key)
+    }));
+  };
+
   useEffect(() => {
     loadApiKeys();
   }, []);
 
   return {
     apiKeys,
+    maskedApiKeys: getMaskedApiKeys(),
     loading,
     loadApiKeys,
     addApiKey,

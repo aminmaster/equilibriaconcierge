@@ -36,7 +36,7 @@ const availableProviders = [
 
 export function ApiKeysTab() {
   const { 
-    apiKeys, 
+    maskedApiKeys, 
     loading, 
     addApiKey, 
     deleteApiKey, 
@@ -73,11 +73,6 @@ export function ApiKeysTab() {
     } finally {
       setTestingKeys(prev => ({ ...prev, [id]: false }));
     }
-  };
-
-  const maskApiKey = (key: string): string => {
-    if (key.length <= 8) return "••••••••";
-    return `${key.substring(0, 4)}••••${key.substring(key.length - 4)}`;
   };
 
   return (
@@ -130,11 +125,11 @@ export function ApiKeysTab() {
                   <div key={i} className="h-12 bg-gray-200 rounded animate-pulse"></div>
                 ))}
               </div>
-            ) : apiKeys.length === 0 ? (
+            ) : maskedApiKeys.length === 0 ? (
               <p className="text-muted-foreground text-sm">No API keys saved yet.</p>
             ) : (
               <div className="space-y-2">
-                {apiKeys.map((key) => (
+                {maskedApiKeys.map((key) => (
                   <div key={key.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center gap-3">
                       <div>
@@ -142,7 +137,7 @@ export function ApiKeysTab() {
                           {availableProviders.find(p => p.id === key.provider)?.name || key.provider}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {maskApiKey(key.api_key)} • Added {new Date(key.created_at).toLocaleDateString()}
+                          {key.api_key} • Added {new Date(key.created_at).toLocaleDateString()}
                         </p>
                       </div>
                     </div>

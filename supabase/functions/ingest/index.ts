@@ -6,6 +6,26 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Simple decryption function (in production, use a proper encryption library)
+function decryptApiKey(encryptedKey: string, secretKey: string): string {
+  try {
+    // Decode from base64
+    const decoded = atob(encryptedKey);
+    
+    // Decrypt using XOR
+    let decrypted = '';
+    for (let i = 0; i < decoded.length; i++) {
+      const charCode = decoded.charCodeAt(i) ^ secretKey.charCodeAt(i % secretKey.length);
+      decrypted += String.fromCharCode(charCode);
+    }
+    
+    return decrypted;
+  } catch (error) {
+    console.error('Decryption error:', error);
+    throw new Error('Failed to decrypt API key');
+  }
+}
+
 // Input validation functions
 function validateUUID(value: any): boolean {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -253,8 +273,12 @@ async function processDocumentContent(supabaseClient: any, sourceId: string, con
     throw new Error('OpenAI API key not configured for embeddings')
   }
   
+  // Decrypt the API key
+  const ENCRYPTION_KEY = Deno.env.get('ENCRYPTION_KEY') || 'your-secret-encryption-key-32-chars'
+  const decryptedApiKey = decryptApiKey(apiKeyData.api_key, ENCRYPTION_KEY)
+  
   // Validate API key format
-  if (!apiKeyData.api_key || apiKeyData.api_key.length < 20) {
+  if (!decryptedApiKey || decryptedApiKey.length < 20) {
     throw new Error("Invalid API key format")
   }
   
@@ -267,7 +291,7 @@ async function processDocumentContent(supabaseClient: any, sourceId: string, con
       const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${apiKeyData.api_key}`,
+          'Authorization': `Bearer ${decryptedApiKey}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
