@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -47,6 +47,26 @@ export function CommandCenter() {
     // Close command center when route changes
     setIsOpen(false);
   }, [location]);
+
+  // Keyboard navigation
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape' && isOpen) {
+      setIsOpen(false);
+    }
+    
+    // Open command center with Ctrl/Cmd + K
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault();
+      setIsOpen(prev => !prev);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handleKeyDown]);
 
   // Show command center on all routes except fullscreen
   const isFullScreenRoute = location.pathname === "/fullscreen";
@@ -97,6 +117,7 @@ export function CommandCenter() {
           onClick={() => setIsOpen(!isOpen)}
           aria-label="Open command center"
           aria-expanded={isOpen}
+          aria-controls="command-center-menu"
         >
           <div className="w-8 h-8 rounded-full bg-background/20 flex items-center justify-center">
             <div className="w-2 h-2 rounded-full bg-background"></div>
@@ -116,6 +137,7 @@ export function CommandCenter() {
               />
               
               <motion.div
+                id="command-center-menu"
                 className="absolute top-20 left-1/2 transform -translate-x-1/2 z-50"
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
