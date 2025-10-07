@@ -94,12 +94,15 @@ export const useAnonymousSession = () => {
       } else {
         // Create new anonymous session
         const newSessionId = 'anon_' + uuidv4();
-        extendSession(); // Sets initial expiry and timer
+        const initialExpiry = new Date();
+        initialExpiry.setTime(initialExpiry.getTime() + SESSION_DURATION);
+        extendSession(); // Sets timer but not expiry state yet
         
         localStorage.setItem(SESSION_ID_KEY, newSessionId);
-        localStorage.setItem(EXPIRY_KEY, expiryDate!.toISOString());
+        localStorage.setItem(EXPIRY_KEY, initialExpiry.toISOString());
         
         setSessionId(newSessionId);
+        setExpiryDate(initialExpiry);
         setIsAnonymous(true);
       }
     });
