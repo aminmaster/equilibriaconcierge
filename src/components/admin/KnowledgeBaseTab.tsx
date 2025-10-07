@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,7 +17,10 @@ import {
   FileUp,
   Globe,
   RefreshCw,
-  Trash2
+  Trash2,
+  FileSearch,
+  Database,
+  Eye
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +34,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Progress } from "@/components/ui/progress";
+import { DocumentViewer } from "@/components/admin/DocumentViewer";
 
 interface KnowledgeSource {
   id: string;
@@ -41,50 +46,73 @@ interface KnowledgeSource {
   created_at: string;
 }
 
+interface Document {
+  id: string;
+  source_id: string;
+  content: string;
+  created_at: string;
+  metadata: any;
+}
+
 export function KnowledgeBaseTab() {
   const { toast } = useToast();
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [file, setFile] = useState<File | null>(null);
   const [url, setUrl] = useState("");
   const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
+  const [processingProgress, setProcessingProgress] = useState<number | null>(null);
+  const [showDocumentViewer, setShowDocumentViewer] = useState(false);
+  const [selectedSource, setSelectedSource] = useState<{id: string, name: string} | null>(null);
 
-  // Load knowledge sources
-  const loadKnowledgeSources = async () => {
+  // Load knowledge sources and documents
+  const loadKnowledgeData = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Load knowledge sources
+      const { data: sourcesData, error: sourcesError } = await supabase
         .from('knowledge_sources')
         .select('*')
         .order('created_at', { ascending: false });
       
-      if (error) {
-        console.error("Database error:", error);
+      if (sourcesError) {
+        console.error("Database error (sources):", sourcesError);
         toast({
           title: "Failed to Load Knowledge Sources",
-          description: error.message || "Could not fetch knowledge sources.",
+          description: sourcesError.message || "Could not fetch knowledge sources.",
           variant: "destructive",
         });
-        setSources([]);
-      } else if (data) {
-        setSources(data);
+      } else if (sourcesData) {
+        setSources(sourcesData);
+      }
+
+      // Load documents count for each source
+      const { data: documentsData, error: documentsError } = await supabase
+        .from('documents')
+        .select('id, source_id, created_at, metadata')
+        .order('created_at', { ascending: false });
+      
+      if (documentsError) {
+        console.error("Database error (documents):", documentsError);
+      } else if (documentsData) {
+        setDocuments(documentsData);
       }
     } catch (error: any) {
       toast({
-        title: "Failed to Load Knowledge Sources",
-        description: error.message || "Could not fetch knowledge sources.",
+        title: "Failed to Load Knowledge Data",
+        description: error.message || "Could not fetch knowledge data.",
         variant: "destructive",
       });
-      setSources([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Load sources on component mount
-  useEffect(() => {
-    loadKnowledgeSources();
-  }, []);
+  // Load data on component mount
+  useState(() => {
+    loadKnowledgeData();
+  });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -103,6 +131,8 @@ export function KnowledgeBaseTab() {
     }
     
     try {
+      setProcessingProgress(0);
+      
       // Create knowledge source record
       const { data, error } = await supabase
         .from('knowledge_sources')
@@ -148,12 +178,17 @@ export function KnowledgeBaseTab() {
           throw new Error(`Ingestion failed: ${response.statusText} - ${errorText}`);
         }
         
-        // Reset form
+        // Reset form and progress
         setFile(null);
         setUrl("");
+        setProcessingProgress(null);
+        
+        // Refresh data
+        loadKnowledgeData();
       }
     } catch (error: any) {
       console.error("Ingestion error:", error);
+      setProcessingProgress(null);
       toast({
         title: "Ingestion failed",
         description: error.message || "Failed to start knowledge ingestion process.",
@@ -181,6 +216,7 @@ export function KnowledgeBaseTab() {
         
         // Update the UI
         setSources(sources.filter(source => source.id !== id));
+        setDocuments(documents.filter(doc => doc.source_id !== id));
         
         toast({
           title: "Source deleted",
@@ -216,6 +252,7 @@ export function KnowledgeBaseTab() {
         } else {
           // Update the UI
           setSources([]);
+          setDocuments([]);
           
           toast({
             title: "All sources deleted",
@@ -230,6 +267,15 @@ export function KnowledgeBaseTab() {
         variant: "destructive",
       });
     }
+  };
+
+  const getDocumentCount = (sourceId: string) => {
+    return documents.filter(doc => doc.source_id === sourceId).length;
+  };
+
+  const viewDocuments = (sourceId: string, sourceName: string) => {
+    setSelectedSource({ id: sourceId, name: sourceName });
+    setShowDocumentViewer(true);
   };
 
   return (
@@ -289,6 +335,7 @@ export function KnowledgeBaseTab() {
                 <Button 
                   className="w-full" 
                   onClick={handleIngestKnowledge}
+                  disabled={processingProgress !== null}
                 >
                   <Upload className="h-4 w-4 mr-2" />
                   Ingest Knowledge
@@ -296,6 +343,16 @@ export function KnowledgeBaseTab() {
               </div>
             </div>
           </div>
+          
+          {processingProgress !== null && (
+            <div className="space-y-2">
+              <Label>Processing...</Label>
+              <Progress value={processingProgress} className="w-full" />
+              <p className="text-sm text-muted-foreground">
+                Your document is being processed and embedded. This may take a few minutes.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
       
@@ -312,7 +369,7 @@ export function KnowledgeBaseTab() {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => loadKnowledgeSources()}
+                onClick={() => loadKnowledgeData()}
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh
@@ -338,7 +395,11 @@ export function KnowledgeBaseTab() {
             </div>
           ) : sources.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No knowledge sources found. Upload a document to get started.
+              <FileSearch className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-1">No knowledge sources found</h3>
+              <p className="text-muted-foreground">
+                Upload a document to get started.
+              </p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -348,7 +409,7 @@ export function KnowledgeBaseTab() {
                     <FileText className="h-8 w-8 text-muted-foreground" />
                     <div>
                       <h3 className="font-medium">{source.name}</h3>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-4 mt-1">
                         <p className="text-sm text-muted-foreground">
                           {new Date(source.created_at).toLocaleDateString()}
                         </p>
@@ -363,16 +424,30 @@ export function KnowledgeBaseTab() {
                         }`}>
                           {source.status.charAt(0).toUpperCase() + source.status.slice(1)}
                         </span>
+                        <span className="inline-flex items-center text-sm text-muted-foreground">
+                          <Database className="h-3 w-3 mr-1" />
+                          {getDocumentCount(source.id)} chunks
+                        </span>
                       </div>
                     </div>
                   </div>
-                  <Button 
-                    variant="destructive" 
-                    size="sm"
-                    onClick={() => deleteSource(source.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => viewDocuments(source.id, source.name)}
+                      disabled={source.status !== 'completed'}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="destructive" 
+                      size="sm"
+                      onClick={() => deleteSource(source.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -399,6 +474,15 @@ export function KnowledgeBaseTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {selectedSource && (
+        <DocumentViewer
+          open={showDocumentViewer}
+          onOpenChange={setShowDocumentViewer}
+          sourceId={selectedSource.id}
+          sourceName={selectedSource.name}
+        />
+      )}
     </div>
   );
 }
