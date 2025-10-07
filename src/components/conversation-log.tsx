@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { 
@@ -18,6 +18,18 @@ import { MarkdownRenderer } from "@/components/markdown-renderer";
 export function ConversationLog() {
   const { currentConversation, loading } = useConversations();
   const [feedback, setFeedback] = useState<Record<string, string>>({});
+  const [streamingMessage, setStreamingMessage] = useState<{id: string, content: string} | null>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      const scrollViewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollViewport) {
+        scrollViewport.scrollTop = scrollViewport.scrollHeight;
+      }
+    }
+  }, [currentConversation?.messages, streamingMessage]);
 
   const handleFeedback = (messageId: string, type: string) => {
     setFeedback(prev => ({
@@ -53,7 +65,7 @@ export function ConversationLog() {
         </p>
       </div>
       
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1" ref={scrollAreaRef}>
         <div className="p-3">
           {!currentConversation || currentConversation.messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-4">
@@ -150,6 +162,19 @@ export function ConversationLog() {
                 )}
               </div>
             ))}
+            
+            {/* Streaming message placeholder */}
+            {streamingMessage && (
+              <div className="flex gap-2 justify-start">
+                <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                  <span className="text-[0.6rem] font-bold text-primary-foreground">AI</span>
+                </div>
+                <div className="rounded-xl px-3 py-2 break-words bg-muted rounded-tl-md max-w-[calc(100%-2rem)] md:max-w-[85%] lg:max-w-[80%]">
+                  <MarkdownRenderer content={streamingMessage.content} />
+                  <div className="inline-block ml-1 w-2 h-4 bg-muted-foreground align-middle animate-pulse"></div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -152,33 +152,76 @@ async function processDocumentContent(supabaseClient: any, sourceId: string, con
   const chunks = splitIntoChunks(content, 1000) // Split into ~1000 character chunks
   console.log("Split content into", chunks.length, "chunks");
   
+  // Get the embedding model configuration
+  const { data: modelConfig, error: modelError } = await supabaseClient
+    .from('model_configurations')
+    .select('*')
+    .eq('type', 'embedding')
+    .single()
+  
+  const embeddingModel = modelConfig?.model || 'text-embedding-3-large'
+  const embeddingDimensions = modelConfig?.dimensions || 3072
+  
+  console.log("Using embedding model:", embeddingModel, "with dimensions:", embeddingDimensions);
+  
+  // Get API key for OpenAI
+  const { data: apiKeyData, error: apiKeyError } = await supabaseClient
+    .from('api_keys')
+    .select('api_key')
+    .eq('provider', 'openai')
+    .single()
+  
+  if (apiKeyError || !apiKeyData) {
+    throw new Error('OpenAI API key not configured for embeddings')
+  }
+  
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i]
     console.log("Processing chunk", i, "length:", chunk.length);
     
-    // Generate embedding (this is a placeholder - in reality you'd call OpenAI API)
-    // For demo purposes, we'll create a mock embedding with the correct dimensions
-    // In a real implementation, we would get the dimensions from the model configuration
-    const dimensions = 3072; // This should come from the model configuration
-    const mockEmbedding = new Array(dimensions).fill(0).map(() => Math.random())
-    
-    // Store the document chunk with its embedding
-    const { error: docError } = await supabaseClient
-      .from('documents')
-      .insert({
-        source_id: sourceId,
-        content: chunk,
-        embedding: mockEmbedding,
-        metadata: {
-          source_name: sourceName,
-          chunk_index: i,
-          total_chunks: chunks.length
-        }
+    try {
+      // Generate embedding using OpenAI
+      const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKeyData.api_key}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          input: chunk,
+          model: embeddingModel
+        })
       })
-    
-    if (docError) {
-      console.error(`Failed to insert document chunk ${i}:`, docError)
-      throw new Error(`Failed to insert document chunk: ${docError.message}`)
+      
+      if (!embeddingResponse.ok) {
+        const errorText = await embeddingResponse.text()
+        throw new Error(`Failed to generate embedding: ${embeddingResponse.statusText} - ${errorText}`)
+      }
+      
+      const embeddingData = await embeddingResponse.json()
+      const embedding = embeddingData.data[0].embedding
+      
+      // Store the document chunk with its embedding
+      const { error: docError } = await supabaseClient
+        .from('documents')
+        .insert({
+          source_id: sourceId,
+          content: chunk,
+          embedding: embedding,
+          metadata: {
+            source_name: sourceName,
+            chunk_index: i,
+            total_chunks: chunks.length
+          }
+        })
+      
+      if (docError) {
+        console.error(`Failed to insert document chunk ${i}:`, docError)
+        throw new Error(`Failed to insert document chunk: ${docError.message}`)
+      }
+    } catch (error) {
+      console.error(`Error processing chunk ${i}:`, error)
+      throw error
     }
   }
   

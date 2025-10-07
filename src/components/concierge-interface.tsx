@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { SoundSettingsPanel } from "@/components/sound-settings-panel";
 import { useChat } from "@/hooks/use-chat";
+import { useConversations } from "@/hooks/use-conversations";
 
 interface ConciergeInterfaceProps {
   inputMode: "text" | "voice";
@@ -24,6 +25,7 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
   const [showSettings, setShowSettings] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { streamMessage, cancelStream, isLoading, error } = useChat();
+  const { currentConversation } = useConversations();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,6 +50,13 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 150)}px`;
     }
   }, [message]);
+
+  // Reset form when conversation changes
+  useEffect(() => {
+    if (!currentConversation) {
+      setMessage("");
+    }
+  }, [currentConversation]);
 
   return (
     <div className="bg-background/80 backdrop-blur-sm border-t">
