@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,10 +13,18 @@ const queryClient = new QueryClient();
 export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const [isMounted, setIsMounted] = useState(false);
+  const mainContentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  // Focus management - move focus to main content on route change
+  useEffect(() => {
+    if (mainContentRef.current) {
+      mainContentRef.current.focus();
+    }
+  }, [location.pathname]);
 
   // Check if we're on full-screen routes
   const isFullScreenRoute = location.pathname === "/" || location.pathname === "/concierge";
@@ -25,8 +33,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        <div className="relative min-h-screen bg-background">
-          <main className="relative">
+        <div 
+          className="relative min-h-screen bg-background"
+          ref={mainContentRef}
+          tabIndex={-1}
+        >
+          <main 
+            className={cn(
+              "relative",
+              isFullScreenRoute ? "h-screen" : "min-h-screen"
+            )}
+          >
             {children}
           </main>
           <CommandCenter />

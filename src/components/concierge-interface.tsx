@@ -10,7 +10,8 @@ import {
   Send,
   Square,
   AlertCircle,
-  GitBranch
+  GitBranch,
+  Loader2
 } from "lucide-react";
 import { SoundSettingsPanel } from "@/components/sound-settings-panel";
 import { useChat } from "@/hooks/use-chat";
@@ -27,13 +28,13 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
   const [isListening, setIsListening] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { streamMessage, cancelStream, isLoading, error } = useChat();
-  const { currentConversation, branchConversation } = useConversations();
+  const { streamMessage, cancelStream, isLoading, error, configLoading } = useChat();
+  const { currentConversation } = useConversations();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim() || isLoading) return;
+    if (!message.trim() || isLoading || configLoading) return;
     
     try {
       await streamMessage(message, (chunk: string) => {
@@ -72,7 +73,12 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
     <div className="bg-background/80 backdrop-blur-sm border-t">
       <div className="p-2">
         <div className="relative rounded-lg bg-background/40 border shadow-sm p-2">
-          {inputMode === "text" ? (
+          {configLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">Loading model configuration...</span>
+            </div>
+          ) : inputMode === "text" ? (
             <form onSubmit={handleSubmit} className="flex gap-1 items-end">
               <Textarea
                 ref={textareaRef}
@@ -80,7 +86,7 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setMessage(e.target.value)}
                 placeholder="Ask me anything..."
                 className="min-h-10 h-10 flex-1 resize-none shadow-sm py-2 text-sm"
-                disabled={isLoading}
+                disabled={isLoading || configLoading}
                 onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
@@ -108,7 +114,7 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
                       type="submit"
                       size="icon"
                       className="h-10 w-10"
-                      disabled={!message.trim() || isLoading}
+                      disabled={!message.trim() || isLoading || configLoading}
                       aria-label="Send message"
                       variant={message.trim() ? "default" : "secondary"}
                     >
@@ -121,7 +127,7 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
                       onClick={() => setInputMode("voice")}
                       className="h-10 w-10"
                       aria-label="Switch to voice input"
-                      disabled={isLoading}
+                      disabled={isLoading || configLoading}
                     >
                       <Mic className="h-4 w-4" />
                     </Button>
@@ -157,7 +163,7 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
                   onClick={toggleListening}
                   className="h-10 w-10"
                   aria-label={isListening ? "Stop listening" : "Start listening"}
-                  disabled={isLoading}
+                  disabled={isLoading || configLoading}
                 >
                   <Mic className="h-4 w-4" />
                 </Button>
@@ -168,7 +174,7 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
                   onClick={() => setInputMode("text")}
                   className="h-10 w-10"
                   aria-label="Switch to text input"
-                  disabled={isLoading}
+                  disabled={isLoading || configLoading}
                 >
                   <Keyboard className="h-4 w-4" />
                 </Button>
@@ -190,17 +196,17 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
           )}
           
           {error && (
-            <div className="mt-2 p-2 bg-destructive/10 rounded text-xs text-destructive" role="alert">
-              <div className="flex items-start gap-1">
-                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <div className="mt-2 p-3 bg-destructive/10 rounded text-sm text-destructive border border-destructive/20" role="alert">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p>Error: {error}</p>
+                  <p className="font-medium">Error</p>
+                  <p className="mt-1">{error}</p>
                   {isModelConfigError && (
                     <Button 
                       variant="link" 
-                      className="p-0 h-auto text-xs text-destructive underline"
+                      className="p-0 h-auto text-xs text-destructive underline mt-1"
                       onClick={() => navigate("/admin")}
-                      aria-label="Configure models in admin panel"
                     >
                       Configure models in admin panel
                     </Button>

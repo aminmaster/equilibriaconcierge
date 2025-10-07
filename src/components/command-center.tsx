@@ -13,7 +13,9 @@ import {
   Sun, 
   Moon,
   Mail,
-  Settings
+  Settings,
+  Search,
+  HelpCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "next-themes";
@@ -30,12 +32,16 @@ const MENU_ITEMS = [
   { id: "contact", icon: Mail, label: "Contact", action: "toggle-contact" },
   { id: "user", icon: User, label: "User", path: "/account" },
   { id: "admin", icon: Settings, label: "Admin", path: "/admin" },
+  { id: "search", icon: Search, label: "Search", action: "toggle-search" },
+  { id: "help", icon: HelpCircle, label: "Help", action: "toggle-help" },
 ];
 
 export function CommandCenter() {
   const [isOpen, setIsOpen] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
   const [showLanguagePanel, setShowLanguagePanel] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
@@ -50,16 +56,41 @@ export function CommandCenter() {
 
   // Keyboard navigation
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'Escape' && isOpen) {
-      setIsOpen(false);
-    }
-    
     // Open command center with Ctrl/Cmd + K
     if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
       e.preventDefault();
       setIsOpen(prev => !prev);
     }
-  }, [isOpen]);
+    
+    // Close with Escape
+    if (e.key === 'Escape' && isOpen) {
+      setIsOpen(false);
+    }
+    
+    // Quick navigation shortcuts
+    if (e.ctrlKey || e.metaKey) {
+      switch (e.key) {
+        case 'h':
+          e.preventDefault();
+          navigate('/');
+          break;
+        case 'c':
+          e.preventDefault();
+          navigate('/concierge');
+          break;
+        case 'a':
+          e.preventDefault();
+          navigate('/account');
+          break;
+        case 'm':
+          e.preventDefault();
+          if (isClient) {
+            setTheme(theme === "dark" ? "light" : "dark");
+          }
+          break;
+      }
+    }
+  }, [isOpen, navigate, theme, setTheme, isClient]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -87,6 +118,12 @@ export function CommandCenter() {
       setIsOpen(false);
     } else if (item.action === "toggle-contact") {
       setShowContactModal(true);
+      setIsOpen(false);
+    } else if (item.action === "toggle-search") {
+      setShowSearch(true);
+      setIsOpen(false);
+    } else if (item.action === "toggle-help") {
+      setShowHelp(true);
       setIsOpen(false);
     }
   };
@@ -194,6 +231,8 @@ export function CommandCenter() {
         open={showLanguagePanel} 
         onOpenChange={setShowLanguagePanel} 
       />
+      
+      {/* Search and Help modals would be implemented here */}
     </>
   );
 }
