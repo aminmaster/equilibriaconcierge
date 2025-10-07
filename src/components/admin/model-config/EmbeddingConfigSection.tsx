@@ -229,7 +229,7 @@ export function EmbeddingConfigSection({
                   </SelectItem>
                 ))
               ) : (
-                <SelectItem value="" disabled>
+                <SelectItem value="no-providers" disabled>
                   No providers available - add API keys first
                 </SelectItem>
               )}
@@ -275,7 +275,7 @@ export function EmbeddingConfigSection({
                     </SelectItem>
                   ))
                 ) : (
-                  <SelectItem value="" disabled>
+                  <SelectItem value="no-models" disabled>
                     {availableProviders.length > 0 
                       ? "No models available for this provider" 
                       : "Add API keys to see models"}
