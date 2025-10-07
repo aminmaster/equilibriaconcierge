@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ModelConfigurations } from "@/types/models";
 import { useToast } from "@/hooks/use-toast";
 import { modelCache } from "@/utils/cache";
+import { showApiError, showSuccess } from "@/utils/toast-utils";
 
 const DEFAULT_GENERATION_CONFIG = {
   provider: "openrouter",
@@ -20,13 +21,13 @@ const DEFAULT_EMBEDDING_CONFIG = {
 const CACHE_KEY = "model_config";
 
 export const useModelConfig = () => {
+  const { toast } = useToast();
   const [config, setConfig] = useState<ModelConfigurations>({
     generation: DEFAULT_GENERATION_CONFIG,
     embedding: DEFAULT_EMBEDDING_CONFIG
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast();
 
   const loadConfig = async () => {
     setLoading(true);
@@ -132,11 +133,7 @@ export const useModelConfig = () => {
       };
       setConfig(defaultConfig);
       modelCache.set(CACHE_KEY, defaultConfig);
-      toast({
-        title: "Configuration Error",
-        description: "Using default model configuration",
-        variant: "destructive"
-      });
+      showApiError(err, "load model config");
     } finally {
       setLoading(false);
     }
@@ -220,19 +217,12 @@ export const useModelConfig = () => {
       setConfig(newConfig);
       modelCache.set(CACHE_KEY, newConfig);
       
-      toast({
-        title: "Configuration Saved",
-        description: "Model configuration has been updated successfully.",
-      });
+      showSuccess("Configuration Saved", "Model configuration has been updated successfully.");
       
       return true;
     } catch (err: any) {
       console.error("Error saving model config:", err);
-      toast({
-        title: "Failed to Save Configuration",
-        description: err.message || "Could not save model configuration.",
-        variant: "destructive",
-      });
+      showApiError(err, "save model config");
       return false;
     }
   };
@@ -247,19 +237,12 @@ export const useModelConfig = () => {
       const success = await saveConfig(defaultConfig);
       if (success) {
         setConfig(defaultConfig);
-        toast({
-          title: "Configuration Reset",
-          description: "Model configuration has been reset to defaults.",
-        });
+        showSuccess("Configuration Reset", "Model configuration has been reset to defaults.");
       }
       return success;
     } catch (err: any) {
       console.error("Error resetting model config:", err);
-      toast({
-        title: "Failed to Reset Configuration",
-        description: err.message || "Could not reset model configuration.",
-        variant: "destructive",
-      });
+      showApiError(err, "reset model config");
       return false;
     }
   };

@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useConversations } from "@/hooks/use-conversations";
 import { useToast } from "@/hooks/use-toast";
 import { useModelConfig } from "@/hooks/use-model-config";
+import { showApiError, showGenericError } from "@/utils/toast-utils";
 
 export const useChat = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -197,29 +198,17 @@ export const useChat = () => {
       
       // Show toast notification for model configuration errors
       if (err.message?.includes("model configurations") || err.message?.includes("configure models")) {
-        toast({
-          title: "Model Configuration Required",
-          description: "Please configure AI models in the admin panel before using the chat.",
-          variant: "destructive" as const
-        });
+        showGenericError("Model Configuration Required", "Please configure AI models in the admin panel before using the chat.");
       } else if (err.message?.includes("Authentication required")) {
-        toast({
-          title: "Authentication Required",
-          description: "Please sign in to continue using the chat feature.",
-          variant: "destructive" as const
-        });
+        showGenericError("Authentication Required", "Please sign in to continue using the chat feature.");
       } else {
-        toast({
-          title: "Chat Error",
-          description: err.message || "Failed to send message. Please try again.",
-          variant: "destructive" as const
-        });
+        showApiError(err, "send message");
       }
     } finally {
       setIsLoading(false);
       abortControllerRef.current = null;
     }
-  }, [isLoading, configLoading, currentConversation, addMessage, createConversation, modelConfig, toast]);
+  }, [isLoading, configLoading, currentConversation, addMessage, createConversation, modelConfig]);
 
   const cancelStream = useCallback(() => {
     if (abortControllerRef.current) {

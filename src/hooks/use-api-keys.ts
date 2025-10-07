@@ -5,6 +5,7 @@ import { ApiKey } from "@/types/auth";
 import { apiCache } from "@/utils/cache";
 import { validateApiKey, apiRateLimiter } from "@/utils/security";
 import { encryptApiKey, decryptApiKey, maskApiKey } from "@/utils/encryption";
+import { showApiError, showSuccess } from "@/utils/toast-utils";
 
 // In a real application, this should be stored securely (e.g., environment variable)
 // For demonstration, we'll generate a key
@@ -13,9 +14,9 @@ const ENCRYPTION_KEY = "your-secret-encryption-key-32-chars";
 const CACHE_KEY = "api_keys";
 
 export const useApiKeys = () => {
+  const { toast } = useToast();
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
 
   const loadApiKeys = async () => {
     setLoading(true);
@@ -34,7 +35,8 @@ export const useApiKeys = () => {
         .order('created_at', { ascending: false });
       
       if (error) {
-        console.error("Error loading API keys:", error);
+        console.error("Database error:", error);
+        showApiError(error, "load API keys");
         setApiKeys([]);
       } else if (data) {
         // Decrypt API keys for use
@@ -47,11 +49,7 @@ export const useApiKeys = () => {
       }
     } catch (error: any) {
       console.error("Error loading API keys:", error);
-      toast({
-        title: "Failed to Load API Keys",
-        description: error.message || "Could not fetch API keys.",
-        variant: "destructive",
-      });
+      showApiError(error, "load API keys");
     } finally {
       setLoading(false);
     }
@@ -60,21 +58,13 @@ export const useApiKeys = () => {
   const addApiKey = async (provider: string, key: string) => {
     // Rate limiting
     if (!apiRateLimiter.isAllowed(`add-api-key:${provider}`)) {
-      toast({
-        title: "Too many requests",
-        description: "Please wait before trying again.",
-        variant: "destructive",
-      });
+      showApiError(new Error("Rate limit exceeded"), "add API key");
       throw new Error("Rate limit exceeded");
     }
 
     // Validate API key format
     if (!validateApiKey(key)) {
-      toast({
-        title: "Invalid API Key",
-        description: "The provided API key format is invalid.",
-        variant: "destructive",
-      });
+      showValidationError("API key", "The provided API key format is invalid.");
       throw new Error("Invalid API key format");
     }
 
@@ -99,18 +89,11 @@ export const useApiKeys = () => {
         const updatedKeys = [decryptedKey, ...apiKeys];
         setApiKeys(updatedKeys);
         apiCache.set(CACHE_KEY, updatedKeys);
-        toast({
-          title: "API Key Added",
-          description: `Successfully added API key for ${provider}.`,
-        });
+        showSuccess("API Key Added", `Successfully added API key for ${provider}.`);
         return decryptedKey;
       }
     } catch (error: any) {
-      toast({
-        title: "Failed to Add API Key",
-        description: error.message || "Could not add API key.",
-        variant: "destructive",
-      });
+      showApiError(error, "add API key");
       throw error;
     }
   };
@@ -118,11 +101,7 @@ export const useApiKeys = () => {
   const deleteApiKey = async (id: string, provider: string) => {
     // Rate limiting
     if (!apiRateLimiter.isAllowed(`delete-api-key:${id}`)) {
-      toast({
-        title: "Too many requests",
-        description: "Please wait before trying again.",
-        variant: "destructive",
-      });
+      showApiError(new Error("Rate limit exceeded"), "delete API key");
       throw new Error("Rate limit exceeded");
     }
 
@@ -138,17 +117,10 @@ export const useApiKeys = () => {
         const updatedKeys = apiKeys.filter(key => key.id !== id);
         setApiKeys(updatedKeys);
         apiCache.set(CACHE_KEY, updatedKeys);
-        toast({
-          title: "API Key Deleted",
-          description: `Successfully deleted API key for ${provider}.`,
-        });
+        showSuccess("API Key Deleted", `Successfully deleted API key for ${provider}.`);
       }
     } catch (error: any) {
-      toast({
-        title: "Failed to Delete API Key",
-        description: error.message || "Could not delete API key.",
-        variant: "destructive",
-      });
+      showApiError(error, "delete API key");
       throw error;
     }
   };
@@ -160,11 +132,7 @@ export const useApiKeys = () => {
   const testApiKey = async (id: string, provider: string) => {
     // Rate limiting
     if (!apiRateLimiter.isAllowed(`test-api-key:${id}`)) {
-      toast({
-        title: "Too many requests",
-        description: "Please wait before trying again.",
-        variant: "destructive",
-      });
+      showApiError(new Error("Rate limit exceeded"), "test API key");
       throw new Error("Rate limit exceeded");
     }
 
@@ -184,18 +152,11 @@ export const useApiKeys = () => {
       
       // In a real implementation, you would test the API key with the provider
       // For now, we'll just return a success message
-      toast({
-        title: "API Key Test",
-        description: `API key for ${provider} is configured.`,
-      });
+      showSuccess("API Key Test", `API key for ${provider} is configured.`);
       
       return true;
     } catch (error: any) {
-      toast({
-        title: "API Key Test Failed",
-        description: error.message || "Failed to test API key.",
-        variant: "destructive",
-      });
+      showApiError(error, "test API key");
       throw error;
     }
   };
