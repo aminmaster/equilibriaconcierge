@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/hooks/use-auth"; // Updated import
+import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,20 +20,32 @@ import {
   Chrome, 
   Facebook, 
   Linkedin, 
-  Twitter 
+  Twitter,
+  Mail,
+  Lock,
+  User
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAnonymousSession } from "@/hooks/use-anonymous-session";
 
 export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const { signIn, signUp } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { sessionId } = useAnonymousSession();
+
+  // Check if we're redirecting from a specific page
+  const from = location.state?.from?.pathname || "/";
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
+    
     try {
       const { error } = await signIn(email, password);
       if (error) throw error;
@@ -43,18 +55,19 @@ export default function Auth() {
         description: "You've been successfully signed in.",
       });
       
-      navigate("/account");
+      // Redirect to the page they were trying to access or to account page
+      navigate(from, { replace: true });
     } catch (error: any) {
-      toast({
-        title: "Sign in failed",
-        description: error.message || "Invalid email or password. Please try again.",
-        variant: "destructive",
-      });
+      // Error is already handled in the hook
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
+    
     try {
       const { error } = await signUp(email, password, name);
       if (error) throw error;
@@ -64,20 +77,24 @@ export default function Auth() {
         description: "Welcome to our platform. Please check your email to confirm your account.",
       });
       
+      // Redirect to account page
       navigate("/account");
     } catch (error: any) {
-      toast({
-        title: "Sign up failed",
-        description: error.message || "There was an error creating your account.",
-        variant: "destructive",
-      });
+      // Error is already handled in the hook
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleSocialLogin = async (provider: string) => {
+    setIsLoading(true);
+    
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: provider.toLowerCase() as any,
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`
+        }
       });
       
       if (error) throw error;
@@ -85,6 +102,38 @@ export default function Auth() {
       toast({
         title: "Social login failed",
         description: error.message || `Failed to sign in with ${provider}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!email) {
+      toast({
+        title: "Email required",
+        description: "Please enter your email address to reset your password.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/update-password`
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Password reset email sent",
+        description: "Check your email for instructions to reset your password.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Password reset failed",
+        description: error.message || "Failed to send password reset email.",
         variant: "destructive",
       });
     }
@@ -110,28 +159,44 @@ export default function Auth() {
               <form onSubmit={handleSignIn} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-                    required
-                  />
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="your@email.com"
+                      value={email}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+                      required
+                      className="pl-10"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-                    required
-                  />
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                      required
+                      className="pl-10"
+                    />
+                  </div>
+                  <Button 
+                    type="button" 
+                    variant="link" 
+                    className="px-0 h-auto text-xs"
+                    onClick={handlePasswordReset}
+                  >
+                    Forgot password?
+                  </Button>
                 </div>
-                <Button className="w-full" type="submit">
-                  Sign In
+                <Button className="w-full" type="submit" disabled={isLoading}>
+                  {isLoading ? "Signing in..." : "Sign In"}
                 </Button>
               </form>
             </TabsContent>
@@ -140,38 +205,50 @@ export default function Auth() {
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
-                  <Input
-                    id="name"
-                    placeholder="Your name"
-                    value={name}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
-                    required
-                  />
+                  <div className="relative">
+                    <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="name"
+                      placeholder="Your name"
+                      value={name}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
+                      required
+                      className="pl-10"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-email">Email</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-                    required
-                  />
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="signup-email"
+                      type="email"
+                      placeholder="your@email.com"
+                      value={email}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+                      required
+                      className="pl-10"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-password">Password</Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-                    required
-                  />
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="signup-password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                      required
+                      className="pl-10"
+                    />
+                  </div>
                 </div>
-                <Button className="w-full" type="submit">
-                  Create Account
+                <Button className="w-full" type="submit" disabled={isLoading}>
+                  {isLoading ? "Creating account..." : "Create Account"}
                 </Button>
               </form>
             </TabsContent>
@@ -192,30 +269,35 @@ export default function Auth() {
             <Button
               variant="outline"
               onClick={() => handleSocialLogin("Google")}
+              disabled={isLoading}
             >
               <Chrome className="h-4 w-4" />
             </Button>
             <Button
               variant="outline"
               onClick={() => handleSocialLogin("GitHub")}
+              disabled={isLoading}
             >
               <Github className="h-4 w-4" />
             </Button>
             <Button
               variant="outline"
               onClick={() => handleSocialLogin("Facebook")}
+              disabled={isLoading}
             >
               <Facebook className="h-4 w-4" />
             </Button>
             <Button
               variant="outline"
               onClick={() => handleSocialLogin("LinkedIn")}
+              disabled={isLoading}
             >
               <Linkedin className="h-4 w-4" />
             </Button>
             <Button
               variant="outline"
               onClick={() => handleSocialLogin("Twitter")}
+              disabled={isLoading}
             >
               <Twitter className="h-4 w-4" />
             </Button>

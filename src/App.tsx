@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/hooks/use-auth.tsx"; // Updated import
+import { AuthProvider } from "@/hooks/use-auth.tsx";
 import { Layout } from "@/components/layout";
 import Index from "./pages/Index";
 import Concierge from "./pages/Concierge";
@@ -8,6 +8,8 @@ import Account from "./pages/Account";
 import Admin from "./pages/Admin";
 import Test from "./pages/Test";
 import NotFound from "./pages/NotFound";
+import ResetPassword from "./pages/ResetPassword";
+import UpdatePassword from "./pages/UpdatePassword";
 import { ProtectedRoute } from "@/components/protected-route";
 
 const App = () => (
@@ -18,6 +20,8 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/concierge" element={<Concierge />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/auth/reset-password" element={<ResetPassword />} />
+          <Route path="/auth/update-password" element={<UpdatePassword />} />
           <Route path="/test" element={<Test />} />
           <Route 
             path="/account" 

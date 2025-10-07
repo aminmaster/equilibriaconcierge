@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 
@@ -13,11 +13,12 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     // If not loading and no user, redirect to auth
     if (!loading && !user) {
-      navigate("/auth");
+      navigate("/auth", { state: { from: location } });
       return;
     }
     
@@ -25,7 +26,7 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
     if (requiredRole === "admin" && !loading && user && user.role !== "admin") {
       navigate("/");
     }
-  }, [user, loading, navigate, requiredRole]);
+  }, [user, loading, navigate, requiredRole, location]);
 
   // Show loading state while checking auth
   if (loading) {
