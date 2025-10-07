@@ -82,7 +82,8 @@ export function ConversationLog() {
                   )}
                   
                   <div className={cn(
-                    "rounded-xl px-3 py-2 break-words max-w-full",
+                    "rounded-xl px-3 py-2 break-words",
+                    "max-w-[calc(100%-2rem)] md:max-w-[85%] lg:max-w-[80%]",
                     message.role === "user" 
                       ? "bg-primary text-primary-foreground rounded-tr-md" 
                       : "bg-muted rounded-tl-md"
