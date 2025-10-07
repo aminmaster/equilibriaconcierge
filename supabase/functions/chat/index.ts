@@ -45,9 +45,9 @@ serve(async (req) => {
     const { 
       message, 
       conversationId, 
-      embeddingModel = 'text-embedding-3-large',
-      generationProvider = 'openrouter',
-      generationModel = 'openai/gpt-4o'
+      embeddingModel,
+      generationProvider,
+      generationModel
     } = requestBody;
     
     console.log("Request body:", requestBody);
@@ -66,6 +66,47 @@ serve(async (req) => {
     if (messagesError) {
       throw new Error(`Failed to fetch messages: ${messagesError.message}`)
     }
+    
+    // Get embedding model configuration if not provided in request
+    let effectiveEmbeddingModel = embeddingModel;
+    if (!effectiveEmbeddingModel) {
+      const { data: embeddingConfig, error: embeddingConfigError } = await supabaseClient
+        .from('model_configurations')
+        .select('model')
+        .eq('type', 'embedding')
+        .single()
+      
+      if (!embeddingConfigError && embeddingConfig) {
+        effectiveEmbeddingModel = embeddingConfig.model;
+      } else {
+        effectiveEmbeddingModel = 'text-embedding-3-large'; // Default fallback
+      }
+    }
+    
+    // Get generation model configuration if not provided in request
+    let effectiveGenerationProvider = generationProvider;
+    let effectiveGenerationModel = generationModel;
+    if (!effectiveGenerationProvider || !effectiveGenerationModel) {
+      const { data: generationConfig, error: generationConfigError } = await supabaseClient
+        .from('model_configurations')
+        .select('provider, model')
+        .eq('type', 'generation')
+        .single()
+      
+      if (!generationConfigError && generationConfig) {
+        effectiveGenerationProvider = generationConfig.provider;
+        effectiveGenerationModel = generationConfig.model;
+      } else {
+        effectiveGenerationProvider = 'openrouter'; // Default fallback
+        effectiveGenerationModel = 'openai/gpt-4o'; // Default fallback
+      }
+    }
+    
+    console.log("Effective models:", { 
+      embeddingModel: effectiveEmbeddingModel, 
+      generationProvider: effectiveGenerationProvider, 
+      generationModel: effectiveGenerationModel 
+    });
     
     // Get API key for embedding provider
     const { data: embeddingKeyData, error: embeddingKeyError } = await supabaseClient
@@ -97,7 +138,7 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             input: message,
-            model: embeddingModel
+            model: effectiveEmbeddingModel
           })
         })
         
@@ -172,7 +213,7 @@ serve(async (req) => {
     const { data: generationKeyData, error: generationKeyError } = await supabaseClient
       .from('api_keys')
       .select('api_key')
-      .eq('provider', generationProvider)
+      .eq('provider', effectiveGenerationProvider)
       .limit(1)
       .single()
     
@@ -180,12 +221,12 @@ serve(async (req) => {
     console.log("Generation key error:", generationKeyError);
     
     if (generationKeyError || !generationKeyData) {
-      throw new Error(`${generationProvider} API key not configured`)
+      throw new Error(`${effectiveGenerationProvider} API key not configured`)
     }
     
     // Call the appropriate API based on the provider
     let apiResponse;
-    if (generationProvider === 'openrouter') {
+    if (effectiveGenerationProvider === 'openrouter') {
       apiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -195,12 +236,12 @@ serve(async (req) => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: generationModel,
+          model: effectiveGenerationModel,
           messages: allMessages,
           stream: true
         })
       })
-    } else if (generationProvider === 'openai') {
+    } else if (effectiveGenerationProvider === 'openai') {
       apiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -208,12 +249,12 @@ serve(async (req) => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: generationModel,
+          model: effectiveGenerationModel,
           messages: allMessages,
           stream: true
         })
       })
-    } else if (generationProvider === 'xai') {
+    } else if (effectiveGenerationProvider === 'xai') {
       // Handle xAI specifically
       apiResponse = await fetch('https://api.x.ai/v1/chat/completions', {
         method: 'POST',
@@ -222,7 +263,7 @@ serve(async (req) => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: generationModel,  // This should be 'grok-beta' or similar
+          model: effectiveGenerationModel,  // This should be 'grok-beta' or similar
           messages: allMessages,
           stream: true
         })
@@ -238,7 +279,7 @@ serve(async (req) => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: generationModel,
+          model: effectiveGenerationModel,
           messages: allMessages,
           stream: true
         })
@@ -246,7 +287,7 @@ serve(async (req) => {
     }
     
     console.log("Generation API response status:", apiResponse?.status);
-    console.log("Using provider:", generationProvider, "with model:", generationModel);
+    console.log("Using provider:", effectiveGenerationProvider, "with model:", effectiveGenerationModel);
     
     if (!apiResponse?.ok) {
       const errorText = await apiResponse?.text();
