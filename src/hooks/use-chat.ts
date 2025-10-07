@@ -107,7 +107,7 @@ export const useChat = () => {
       const requestBody = {
         message: content,
         conversationId: conversationId,
-        embeddingModel: modelConfig.embedding.model,
+        // Only pass generation parameters to the chat function
         generationProvider: modelConfig.generation.provider,
         generationModel: modelConfig.generation.model
       };
