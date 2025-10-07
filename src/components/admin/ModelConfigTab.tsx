@@ -46,6 +46,16 @@ const DEFAULT_PROVIDER_MODELS = {
   ],
   xai: [
     "grok-beta"
+  ],
+  cohere: [
+    "command-r-plus",
+    "command-r",
+    "command"
+  ],
+  google: [
+    "gemini-1.5-pro",
+    "gemini-1.5-flash",
+    "gemini-1.0-pro"
   ]
 };
 
@@ -60,6 +70,10 @@ const DEFAULT_EMBEDDING_MODELS = {
     { model: "openai/text-embedding-3-large", dimensions: 3072 },
     { model: "openai/text-embedding-3-small", dimensions: 1536 },
     { model: "openai/text-embedding-ada-002", dimensions: 1536 }
+  ],
+  cohere: [
+    { model: "embed-english-v3.0", dimensions: 1024 },
+    { model: "embed-multilingual-v3.0", dimensions: 1024 }
   ]
 };
 

@@ -102,8 +102,14 @@ export function GenerationConfigSection({
         await fetchOpenAIModels();
       } else if (provider === "openrouter") {
         await fetchOpenRouterModels();
+      } else if (provider === "anthropic") {
+        await fetchAnthropicModels();
       } else if (provider === "xai") {
         setGenerationModels(defaultProviderModels.xai || []);
+      } else if (provider === "cohere") {
+        await fetchCohereModels();
+      } else if (provider === "google") {
+        await fetchGoogleModels();
       } else {
         setGenerationModels(
           defaultProviderModels[provider as keyof typeof defaultProviderModels] || 
@@ -228,6 +234,78 @@ export function GenerationConfigSection({
     }
   };
 
+  const fetchAnthropicModels = async () => {
+    console.log("Fetching Anthropic models");
+    // Get Anthropic API key from database
+    const { data, error } = await supabase
+      .from('api_keys')
+      .select('api_key')
+      .eq('provider', 'anthropic')
+      .single();
+
+    if (error) {
+      console.log("Anthropic API key error:", error);
+      setGenerationModels(defaultProviderModels.anthropic || []);
+      return;
+    }
+    if (!data) {
+      console.log("No Anthropic API key found");
+      setGenerationModels(defaultProviderModels.anthropic || []);
+      return;
+    }
+
+    // For Anthropic, we'll use predefined models since their API doesn't list models
+    setGenerationModels(defaultProviderModels.anthropic || []);
+  };
+
+  const fetchCohereModels = async () => {
+    console.log("Fetching Cohere models");
+    // Get Cohere API key from database
+    const { data, error } = await supabase
+      .from('api_keys')
+      .select('api_key')
+      .eq('provider', 'cohere')
+      .single();
+
+    if (error) {
+      console.log("Cohere API key error:", error);
+      setGenerationModels(defaultProviderModels.cohere || []);
+      return;
+    }
+    if (!data) {
+      console.log("No Cohere API key found");
+      setGenerationModels(defaultProviderModels.cohere || []);
+      return;
+    }
+
+    // For Cohere, we'll use predefined models
+    setGenerationModels(defaultProviderModels.cohere || []);
+  };
+
+  const fetchGoogleModels = async () => {
+    console.log("Fetching Google models");
+    // Get Google API key from database
+    const { data, error } = await supabase
+      .from('api_keys')
+      .select('api_key')
+      .eq('provider', 'google')
+      .single();
+
+    if (error) {
+      console.log("Google API key error:", error);
+      setGenerationModels(defaultProviderModels.google || []);
+      return;
+    }
+    if (!data) {
+      console.log("No Google API key found");
+      setGenerationModels(defaultProviderModels.google || []);
+      return;
+    }
+
+    // For Google, we'll use predefined models
+    setGenerationModels(defaultProviderModels.google || []);
+  };
+
   // Load configurations on component mount
   useEffect(() => {
     console.log("GenerationConfigSection mounted");
@@ -291,7 +369,7 @@ export function GenerationConfigSection({
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <Label>Generation Model</Label>
-            {(generationConfig.provider === "openai" || generationConfig.provider === "openrouter") && (
+            {(generationConfig.provider === "openai" || generationConfig.provider === "openrouter" || generationConfig.provider === "anthropic") && (
               <Button 
                 variant="ghost" 
                 size="sm" 

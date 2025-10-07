@@ -113,6 +113,8 @@ export function EmbeddingConfigSection({
         await fetchOpenAIEmbeddingModels();
       } else if (provider === "openrouter") {
         setEmbeddingModels(defaultEmbeddingModels.openrouter || []);
+      } else if (provider === "cohere") {
+        await fetchCohereEmbeddingModels();
       } else {
         setEmbeddingModels(
           defaultEmbeddingModels[provider as keyof typeof defaultEmbeddingModels] || 
@@ -199,6 +201,30 @@ export function EmbeddingConfigSection({
       console.log("No embedding models found, using defaults");
       setEmbeddingModels(defaultEmbeddingModels.openai || []);
     }
+  };
+
+  const fetchCohereEmbeddingModels = async () => {
+    console.log("Fetching Cohere embedding models");
+    // Get Cohere API key from database
+    const { data, error } = await supabase
+      .from('api_keys')
+      .select('api_key')
+      .eq('provider', 'cohere')
+      .single();
+
+    if (error) {
+      console.log("Cohere API key error:", error);
+      setEmbeddingModels(defaultEmbeddingModels.cohere || []);
+      return;
+    }
+    if (!data) {
+      console.log("No Cohere API key found");
+      setEmbeddingModels(defaultEmbeddingModels.cohere || []);
+      return;
+    }
+
+    // For Cohere, we'll use predefined models
+    setEmbeddingModels(defaultEmbeddingModels.cohere || []);
   };
 
   // Load configurations on component mount
