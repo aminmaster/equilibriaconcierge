@@ -19,12 +19,14 @@ interface EmbeddingConfigSectionProps {
   availableProviders: string[];
   loadingProviders: boolean;
   defaultEmbeddingModels: Record<string, Array<{model: string, dimensions: number}>>;
+  onConfigChange: (config: any) => void;
 }
 
 export function EmbeddingConfigSection({ 
   availableProviders, 
   loadingProviders,
-  defaultEmbeddingModels
+  defaultEmbeddingModels,
+  onConfigChange
 }: EmbeddingConfigSectionProps) {
   // Embedding config
   const [embeddingConfig, setEmbeddingConfig] = useState({
@@ -37,6 +39,18 @@ export function EmbeddingConfigSection({
   );
   const [loadingEmbeddingModels, setLoadingEmbeddingModels] = useState(false);
   const { toast } = useToast();
+
+  // Notify parent of config changes
+  useEffect(() => {
+    // Get dimensions for current model
+    const selectedModel = embeddingModels.find(m => m.model === embeddingConfig.model);
+    const dimensions = selectedModel ? selectedModel.dimensions : 1536;
+    
+    onConfigChange({
+      ...embeddingConfig,
+      dimensions
+    });
+  }, [embeddingConfig, embeddingModels, onConfigChange]);
 
   // Load model configurations from database
   const loadModelConfigurations = async () => {
