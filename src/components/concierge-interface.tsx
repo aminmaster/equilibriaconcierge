@@ -8,11 +8,13 @@ import {
   Keyboard, 
   Settings, 
   Send,
-  Square
+  Square,
+  AlertCircle
 } from "lucide-react";
 import { SoundSettingsPanel } from "@/components/sound-settings-panel";
 import { useChat } from "@/hooks/use-chat";
 import { useConversations } from "@/hooks/use-conversations";
+import { useNavigate } from "react-router-dom";
 
 interface ConciergeInterfaceProps {
   inputMode: "text" | "voice";
@@ -26,6 +28,7 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { streamMessage, cancelStream, isLoading, error } = useChat();
   const { currentConversation } = useConversations();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,6 +63,9 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
       setMessage("");
     }
   }, [currentConversation]);
+
+  // Check if error is related to missing model configurations
+  const isModelConfigError = error?.includes("model configurations") || error?.includes("configure models");
 
   return (
     <div className="bg-background/80 backdrop-blur-sm border-t">
@@ -181,8 +187,22 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
           )}
           
           {error && (
-            <div className="mt-1 text-xs text-destructive">
-              Error: {error}
+            <div className="mt-2 p-2 bg-destructive/10 rounded text-xs text-destructive">
+              <div className="flex items-start gap-1">
+                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p>Error: {error}</p>
+                  {isModelConfigError && (
+                    <Button 
+                      variant="link" 
+                      className="p-0 h-auto text-xs text-destructive underline"
+                      onClick={() => navigate("/admin")}
+                    >
+                      Configure models in admin panel
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>

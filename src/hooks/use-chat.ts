@@ -1,12 +1,14 @@
 import { useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useConversations } from "@/hooks/use-conversations";
+import { useToast } from "@/hooks/use-toast";
 
 export const useChat = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const { currentConversation, addMessage, createConversation } = useConversations();
+  const { toast } = useToast();
 
   // Load model configuration
   const loadModelConfiguration = async () => {
@@ -201,6 +203,15 @@ export const useChat = () => {
     } catch (err: any) {
       console.error("Chat error:", err);
       setError(err.message || "Failed to send message");
+      
+      // Show toast notification for model configuration errors
+      if (err.message?.includes("model configurations") || err.message?.includes("configure models")) {
+        toast({
+          title: "Model Configuration Required",
+          description: "Please configure AI models in the admin panel before using the chat.",
+          variant: "destructive"
+        });
+      }
     } finally {
       setIsLoading(false);
       abortControllerRef.current = null;
