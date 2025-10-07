@@ -1,46 +1,70 @@
-// Encryption utilities for sensitive data
+"use client"; // Ensure client-side for Web Crypto
 
-// Simple encryption/decryption functions (in production, use a proper encryption library)
-export const encryptApiKey = (apiKey: string, secretKey: string): string => {
+// Secure encryption utilities using Web Crypto API
+async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
+  return await crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt,
+      iterations: 100000,
+      hash: 'SHA-256'
+    },
+    await crypto.subtle.importKey('raw', new TextEncoder().encode(password), { name: 'PBKDF2' }, false, ['deriveBits', 'deriveKey']),
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+async function encryptApiKey(apiKey: string, secretKey: string): Promise<string> {
   try {
-    // In a real implementation, you would use a proper encryption algorithm
-    // For demonstration purposes, we'll use a simple XOR cipher
-    // Note: This is NOT secure for production use!
+    const encoder = new TextEncoder();
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
     
-    let encrypted = '';
-    for (let i = 0; i < apiKey.length; i++) {
-      const charCode = apiKey.charCodeAt(i) ^ secretKey.charCodeAt(i % secretKey.length);
-      encrypted += String.fromCharCode(charCode);
-    }
+    const key = await deriveKey(secretKey, salt);
+    const encrypted = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      encoder.encode(apiKey)
+    );
     
-    // Base64 encode the result
-    return btoa(encrypted);
+    const combined = new Uint8Array(salt.length + iv.length + encrypted.byteLength);
+    combined.set(salt);
+    combined.set(iv, salt.length);
+    combined.set(new Uint8Array(encrypted), salt.length + iv.length);
+    
+    return btoa(String.fromCharCode(...combined));
   } catch (error) {
     console.error('Encryption error:', error);
     throw new Error('Failed to encrypt API key');
   }
-};
+}
 
-export const decryptApiKey = (encryptedKey: string, secretKey: string): string => {
+async function decryptApiKey(encryptedKey: string, secretKey: string): Promise<string> {
   try {
-    // Decode from base64
-    const decoded = atob(encryptedKey);
+    const decoder = new TextDecoder();
+    const combined = new Uint8Array(atob(encryptedKey).split('').map(c => c.charCodeAt(0)));
     
-    // Decrypt using XOR
-    let decrypted = '';
-    for (let i = 0; i < decoded.length; i++) {
-      const charCode = decoded.charCodeAt(i) ^ secretKey.charCodeAt(i % secretKey.length);
-      decrypted += String.fromCharCode(charCode);
-    }
+    const salt = combined.slice(0, 16);
+    const iv = combined.slice(16, 28);
+    const encrypted = combined.slice(28);
     
-    return decrypted;
+    const key = await deriveKey(secretKey, salt);
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      encrypted
+    );
+    
+    return decoder.decode(decrypted);
   } catch (error) {
     console.error('Decryption error:', error);
     throw new Error('Failed to decrypt API key');
   }
-};
+}
 
-// Generate a random encryption key
+// Generate a random encryption key (for secretKey param)
 export const generateEncryptionKey = (length: number = 32): string => {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let result = '';
@@ -50,20 +74,13 @@ export const generateEncryptionKey = (length: number = 32): string => {
   return result;
 };
 
-// Secure hash function for API key verification (without revealing the key)
+// Secure hash function for API key verification (using SHA-256)
 export const hashApiKey = async (apiKey: string): Promise<string> => {
-  // In a real implementation, use a proper cryptographic hash function
-  // For now, we'll use a simple approach for demonstration
   const encoder = new TextEncoder();
   const data = encoder.encode(apiKey);
-  
-  // Simple hash function (NOT cryptographically secure)
-  let hash = 0;
-  for (let i = 0; i < data.length; i++) {
-    hash = ((hash << 5) - hash + data[i]) | 0;
-  }
-  
-  return hash.toString(36);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return btoa(String.fromCharCode(...hashArray));
 };
 
 // Verify an API key against its hash

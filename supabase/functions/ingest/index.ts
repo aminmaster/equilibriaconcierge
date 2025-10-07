@@ -61,6 +61,8 @@ function isRateLimited(identifier: string, maxRequests: number = 5, windowMs: nu
   return false
 }
 
+// TODO: Migrate to Redis for distributed rate limiting in production scaling
+
 // Fetch and extract content from URL
 async function fetchUrlContent(url: string): Promise<string> {
   try {

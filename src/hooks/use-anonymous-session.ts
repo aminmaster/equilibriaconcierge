@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
 
@@ -6,6 +6,8 @@ export const useAnonymousSession = () => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isAnonymous, setIsAnonymous] = useState(true);
   const [expiryDate, setExpiryDate] = useState<Date | null>(null);
+  const activityTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastActivityRef = useRef<number>(Date.now());
 
   // Session keys
   const SESSION_ID_KEY = 'anonymousSessionId';
@@ -14,8 +16,8 @@ export const useAnonymousSession = () => {
   // Session duration: 48 hours in milliseconds
   const SESSION_DURATION = 48 * 60 * 60 * 1000;
 
-  // Idle timer for periodic extension (30 minutes)
-  let idleTimer: NodeJS.Timeout | null = null;
+  // Inactivity threshold: 30 minutes of no activity before considering idle
+  const INACTIVITY_THRESHOLD = 30 * 60 * 1000;
 
   const extendSession = () => {
     const newExpiry = new Date();
@@ -24,15 +26,29 @@ export const useAnonymousSession = () => {
     localStorage.setItem(EXPIRY_KEY, newExpiry.toISOString());
     setExpiryDate(newExpiry);
     
-    // Reset idle timer
-    if (idleTimer) {
-      clearTimeout(idleTimer);
+    // Reset activity timer
+    if (activityTimerRef.current) {
+      clearTimeout(activityTimerRef.current);
     }
-    idleTimer = setTimeout(() => {
-      // Optional: Check for true inactivity here (e.g., no mouse/keyboard events for X time)
-      // For now, just log and continue extending on other interactions
-      console.log('Idle timer: Session extended check');
-    }, 30 * 60 * 1000); // 30 min idle check
+    activityTimerRef.current = setTimeout(() => {
+      // Check for true inactivity
+      const timeSinceActivity = Date.now() - lastActivityRef.current;
+      if (timeSinceActivity > INACTIVITY_THRESHOLD) {
+        console.log('True inactivity detected: Session not extended');
+        // Optionally, prompt user or reduce session expiry here
+      } else {
+        console.log('Activity detected: Session extended');
+        // Extend session only if recent activity
+        const extendedExpiry = new Date();
+        extendedExpiry.setTime(extendedExpiry.getTime() + SESSION_DURATION);
+        localStorage.setItem(EXPIRY_KEY, extendedExpiry.toISOString());
+        setExpiryDate(extendedExpiry);
+      }
+    }, INACTIVITY_THRESHOLD);
+  };
+
+  const trackActivity = () => {
+    lastActivityRef.current = Date.now();
   };
 
   const cleanupSession = () => {
@@ -40,9 +56,9 @@ export const useAnonymousSession = () => {
     localStorage.removeItem(EXPIRY_KEY);
     setSessionId(null);
     setExpiryDate(null);
-    if (idleTimer) {
-      clearTimeout(idleTimer);
-      idleTimer = null;
+    if (activityTimerRef.current) {
+      clearTimeout(activityTimerRef.current);
+      activityTimerRef.current = null;
     }
   };
 
@@ -93,6 +109,7 @@ export const useAnonymousSession = () => {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden && sessionId) {
+        trackActivity(); // Update last activity
         extendSession(); // Extend on tab focus (user returning)
       }
     };
@@ -101,11 +118,31 @@ export const useAnonymousSession = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [sessionId]);
 
+  // Track mouse and keyboard activity for true inactivity detection
+  useEffect(() => {
+    const handleMouseMove = () => {
+      trackActivity();
+    };
+
+    const handleKeyDown = () => {
+      trackActivity();
+    };
+
+    // Add event listeners
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (idleTimer) {
-        clearTimeout(idleTimer);
+      if (activityTimerRef.current) {
+        clearTimeout(activityTimerRef.current);
       }
     };
   }, []);

@@ -72,6 +72,8 @@ function isRateLimited(identifier: string, maxRequests: number = 10, windowMs: n
   return false
 }
 
+// TODO: Migrate to Redis for distributed rate limiting in production scaling
+
 serve(async (req) => {
   console.log("Chat function called with method:", req.method)
   console.log("Request headers:", [...req.headers.entries()])
@@ -85,7 +87,7 @@ serve(async (req) => {
     const clientIP = req.headers.get('x-forwarded-for') || 'unknown'
     if (isRateLimited(`chat:${clientIP}`)) {
       return new Response(
-        JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
+        JSON.stringify({ error: 'Rate limit exceeded. Please tryintre again later.' }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 429
