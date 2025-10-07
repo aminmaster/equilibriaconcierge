@@ -124,36 +124,56 @@ export function ModelConfigTab() {
         throw new Error("Embedding configuration data not available. Please make a selection first.");
       }
       
-      // Save generation configuration
-      const { error: generationError } = await supabase
+      // Save generation configuration - use insert and handle conflicts manually
+      const { data: existingGeneration, error: fetchGenerationError } = await supabase
         .from('model_configurations')
-        .upsert({
-          id: 'generation-default',
-          type: 'generation',
-          provider: generationConfig.provider,
-          model: generationConfig.model,
-          temperature: generationConfig.temperature,
-          max_tokens: generationConfig.maxTokens,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'type'
-        });
+        .select('id')
+        .eq('type', 'generation')
+        .single();
+      
+      if (fetchGenerationError && fetchGenerationError.code !== 'PGRST116') {
+        throw fetchGenerationError;
+      }
+      
+      const generationPayload = {
+        id: existingGeneration?.id || 'generation-default',
+        type: 'generation',
+        provider: generationConfig.provider,
+        model: generationConfig.model,
+        temperature: generationConfig.temperature,
+        max_tokens: generationConfig.maxTokens,
+        updated_at: new Date().toISOString()
+      };
+      
+      const { error: generationError } = existingGeneration 
+        ? await supabase.from('model_configurations').update(generationPayload).eq('id', existingGeneration.id)
+        : await supabase.from('model_configurations').insert([generationPayload]);
       
       if (generationError) throw generationError;
       
-      // Save embedding configuration
-      const { error: embeddingError } = await supabase
+      // Save embedding configuration - use insert and handle conflicts manually
+      const { data: existingEmbedding, error: fetchEmbeddingError } = await supabase
         .from('model_configurations')
-        .upsert({
-          id: 'embedding-default',
-          type: 'embedding',
-          provider: embeddingConfig.provider,
-          model: embeddingConfig.model,
-          dimensions: embeddingConfig.dimensions,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'type'
-        });
+        .select('id')
+        .eq('type', 'embedding')
+        .single();
+      
+      if (fetchEmbeddingError && fetchEmbeddingError.code !== 'PGRST116') {
+        throw fetchEmbeddingError;
+      }
+      
+      const embeddingPayload = {
+        id: existingEmbedding?.id || 'embedding-default',
+        type: 'embedding',
+        provider: embeddingConfig.provider,
+        model: embeddingConfig.model,
+        dimensions: embeddingConfig.dimensions,
+        updated_at: new Date().toISOString()
+      };
+      
+      const { error: embeddingError } = existingEmbedding
+        ? await supabase.from('model_configurations').update(embeddingPayload).eq('id', existingEmbedding.id)
+        : await supabase.from('model_configurations').insert([embeddingPayload]);
       
       if (embeddingError) throw embeddingError;
       
@@ -181,35 +201,55 @@ export function ModelConfigTab() {
       const defaultEmbeddingModel = defaultEmbeddingModels[0] || { model: "text-embedding-3-large", dimensions: 3072 };
       
       // Save default generation configuration
-      const { error: generationError } = await supabase
+      const { data: existingGeneration, error: fetchGenerationError } = await supabase
         .from('model_configurations')
-        .upsert({
-          id: 'generation-default',
-          type: 'generation',
-          provider: 'openrouter',
-          model: defaultGenerationModels[0] || '',
-          temperature: 0.7,
-          max_tokens: 2048,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'type'
-        });
+        .select('id')
+        .eq('type', 'generation')
+        .single();
+      
+      if (fetchGenerationError && fetchGenerationError.code !== 'PGRST116') {
+        throw fetchGenerationError;
+      }
+      
+      const generationPayload = {
+        id: existingGeneration?.id || 'generation-default',
+        type: 'generation',
+        provider: 'openrouter',
+        model: defaultGenerationModels[0] || '',
+        temperature: 0.7,
+        max_tokens: 2048,
+        updated_at: new Date().toISOString()
+      };
+      
+      const { error: generationError } = existingGeneration 
+        ? await supabase.from('model_configurations').update(generationPayload).eq('id', existingGeneration.id)
+        : await supabase.from('model_configurations').insert([generationPayload]);
       
       if (generationError) throw generationError;
       
       // Save default embedding configuration
-      const { error: embeddingError } = await supabase
+      const { data: existingEmbedding, error: fetchEmbeddingError } = await supabase
         .from('model_configurations')
-        .upsert({
-          id: 'embedding-default',
-          type: 'embedding',
-          provider: 'openai',
-          model: defaultEmbeddingModel.model,
-          dimensions: defaultEmbeddingModel.dimensions,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'type'
-        });
+        .select('id')
+        .eq('type', 'embedding')
+        .single();
+      
+      if (fetchEmbeddingError && fetchEmbeddingError.code !== 'PGRST116') {
+        throw fetchEmbeddingError;
+      }
+      
+      const embeddingPayload = {
+        id: existingEmbedding?.id || 'embedding-default',
+        type: 'embedding',
+        provider: 'openai',
+        model: defaultEmbeddingModel.model,
+        dimensions: defaultEmbeddingModel.dimensions,
+        updated_at: new Date().toISOString()
+      };
+      
+      const { error: embeddingError } = existingEmbedding
+        ? await supabase.from('model_configurations').update(embeddingPayload).eq('id', existingEmbedding.id)
+        : await supabase.from('model_configurations').insert([embeddingPayload]);
       
       if (embeddingError) throw embeddingError;
       
