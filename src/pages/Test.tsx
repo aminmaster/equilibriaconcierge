@@ -1,5 +1,6 @@
 import { TestSupabase } from "@/components/test-supabase";
 import { TestEdgeFunction } from "@/components/test-edge-function";
+import { TestModelConfig } from "@/components/test-model-config";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
@@ -58,6 +59,11 @@ export default function Test() {
           <div className="border rounded-lg p-6">
             <h2 className="text-xl font-semibold mb-4">Supabase Integration Test</h2>
             <TestSupabase />
+          </div>
+          
+          <div className="border rounded-lg p-6">
+            <h2 className="text-xl font-semibold mb-4">Model Configuration Test</h2>
+            <TestModelConfig />
           </div>
           
           <div className="border rounded-lg p-6">
