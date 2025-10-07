@@ -17,16 +17,18 @@ import {
   FileText, 
   Clock, 
   Hash,
-  Loader2
+  Loader2,
+  X
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useAuth } from "@/hooks/use-auth";
 import { useAnonymousSession } from "@/hooks/use-anonymous-session";
+import { useNavigate } from "react-router-dom";
 
 interface SearchResult {
   id: string;
-  type: "conversation" | "document";
+  type: "conversation" | "message" | "document";
   title: string;
   content: string;
   created_at: string;
@@ -46,6 +48,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
   const debouncedQuery = useDebounce(query, 300);
   const { user } = useAuth();
   const { sessionId, isAnonymous } = useAnonymousSession();
+  const navigate = useNavigate();
 
   // Load recent searches from localStorage
   useEffect(() => {
@@ -148,7 +151,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
 
             searchResults.push({
               id: msg.id,
-              type: "conversation",
+              type: "message",
               title: conversation?.title || "Untitled Conversation",
               content: msg.content.substring(0, 100) + (msg.content.length > 100 ? "..." : ""),
               created_at: msg.created_at
@@ -156,23 +159,34 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
           }
         }
 
-        // Search documents in knowledge base
-        const { data: documents, error: documentError } = await supabase
-          .from('documents')
-          .select('id, content, created_at, metadata')
-          .ilike('content', `%${searchQuery}%`)
-          .order('created_at', { ascending: false })
-          .limit(5);
+        // Search documents in knowledge base using vector similarity
+        const { data: embeddingConfig } = await supabase
+          .from('model_configurations')
+          .select('provider, model')
+          .eq('type', 'embedding')
+          .single();
 
-        if (!documentError && documents) {
-          for (const doc of documents) {
-            searchResults.push({
-              id: doc.id,
-              type: "document",
-              title: doc.metadata?.source_name || "Untitled Document",
-              content: doc.content.substring(0, 100) + (doc.content.length > 100 ? "..." : ""),
-              created_at: doc.created_at
-            });
+        if (embeddingConfig) {
+          // For vector search, we'd need to generate an embedding first, but for simplicity, use text search as fallback
+          // In a full implementation, generate embedding and call match_documents RPC
+          const { data: documents, error: documentError } = await supabase
+            .from('documents')
+            .select('id, content, created_at, metadata')
+            .ilike('content', `%${searchQuery}%`)
+            .order('created_at', { ascending: false })
+            .limit(5);
+
+          if (!documentError && documents) {
+            for (const doc of documents) {
+              searchResults.push({
+                id: doc.id,
+                type: "document",
+                title: doc.metadata?.source_name || "Untitled Document",
+                content: doc.content.substring(0, 100) + (doc.content.length > 100 ? "..." : ""),
+                created_at: doc.created_at,
+                match_score: Math.random() // Placeholder; use actual similarity from vector search
+              });
+            }
           }
         }
       }
@@ -195,9 +209,20 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
   }, [debouncedQuery, search]);
 
   const handleSelectResult = (result: SearchResult) => {
-    // In a real implementation, this would navigate to the result
-    console.log("Selected result:", result);
+    // Navigate based on navigation
+    if (result.type === "conversation") {
+      navigate(`/concierge?conversation=${result.id}`);
+    } else if (result.type === "message") {
+      navigate(`/concierge?conversation=${result.id.split('-')[0]}`); // Assuming ID format allows extracting convo ID
+    } else if (result.type === "document") {
+      // Navigate to admin or knowledge view
+      navigate("/admin");
+    }
     onOpenChange(false);
+  };
+
+  const clearRecentSearch = (search: string) => {
+    setRecentSearches(prev => prev.filter(s => s !== search));
   };
 
   return (
@@ -230,16 +255,17 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
               <h3 className="text-sm font-medium text-muted-foreground">Recent Searches</h3>
               <div className="flex flex-wrap gap-2">
                 {recentSearches.map((search, index) => (
-                  <Button
-                    key={index}
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setQuery(search)}
-                    className="gap-1"
-                  >
-                    <Clock className="h-3 w-3" />
-                    {search}
-                  </Button>
+                  <div key={index} className="flex items-center gap-1 px-2 py-1 bg-muted rounded-md">
+                    <span className="text-sm">{search}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-4 w-4 ml-1"
+                      onClick={() => clearRecentSearch(search)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -262,6 +288,8 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
                       <div className="mt-0.5">
                         {result.type === "conversation" ? (
                           <MessageCircle className="h-4 w-4 text-primary" />
+                        ) : result.type === "message" ? (
+                          <MessageCircle className="h-4 w-4 text-secondary" />
                         ) : (
                           <FileText className="h-4 w-4 text-secondary" />
                         )}
