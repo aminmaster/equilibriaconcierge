@@ -18,59 +18,43 @@ export const useChat = () => {
       
       if (error) throw error;
       
-      const config: any = {
-        generation: {
-          provider: 'openrouter',
-          model: 'openai/gpt-4o',
-          temperature: 0.7,
-          maxTokens: 2048
-        },
-        embedding: {
-          provider: 'openai',
-          model: 'text-embedding-3-large',
-          dimensions: 3072
-        }
-      };
+      if (!data || data.length === 0) {
+        throw new Error("No model configurations found. Please configure models in the admin panel.");
+      }
       
-      if (data) {
-        data.forEach((item: any) => {
-          if (item.type === 'generation') {
-            config.generation = {
-              provider: item.provider || 'openrouter',
-              model: item.model || 'openai/gpt-4o',
-              temperature: item.temperature !== null ? item.temperature : 0.7,
-              maxTokens: item.max_tokens || 2048
-            };
-          } else if (item.type === 'embedding') {
-            config.embedding = {
-              provider: item.provider || 'openai',
-              model: item.model || 'text-embedding-3-large',
-              dimensions: item.dimensions || 3072
-            };
-          }
-        });
+      const config: any = {};
+      
+      data.forEach((item: any) => {
+        if (item.type === 'generation') {
+          config.generation = {
+            provider: item.provider,
+            model: item.model,
+            temperature: item.temperature !== null ? item.temperature : 0.7,
+            maxTokens: item.max_tokens || 2048
+          };
+        } else if (item.type === 'embedding') {
+          config.embedding = {
+            provider: item.provider,
+            model: item.model,
+            dimensions: item.dimensions
+          };
+        }
+      });
+      
+      // Validate that we have both generation and embedding configs
+      if (!config.generation) {
+        throw new Error("No generation model configured. Please configure a generation model in the admin panel.");
+      }
+      
+      if (!config.embedding) {
+        throw new Error("No embedding model configured. Please configure an embedding model in the admin panel.");
       }
       
       console.log("Loaded model configuration:", config);
       return config;
     } catch (error) {
       console.error("Error loading model configuration:", error);
-      // Return default configuration
-      const defaultConfig = {
-        generation: {
-          provider: 'openrouter',
-          model: 'openai/gpt-4o',
-          temperature: 0.7,
-          maxTokens: 2048
-        },
-        embedding: {
-          provider: 'openai',
-          model: 'text-embedding-3-large',
-          dimensions: 3072
-        }
-      };
-      console.log("Using default model configuration:", defaultConfig);
-      return defaultConfig;
+      throw error;
     }
   };
 
