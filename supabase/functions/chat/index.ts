@@ -250,7 +250,6 @@ serve(async (req) => {
       })
     } else if (generationProvider === 'xai') {
       // Handle xAI specifically - use the correct endpoint and model name
-      // For xAI, the model should be 'grok-beta' not 'x-ai/grok-4-fast'
       const xaiModel = generationModel.includes('grok') ? 'grok-beta' : generationModel;
       
       apiResponse = await fetch('https://api.x.ai/v1/chat/completions', {
