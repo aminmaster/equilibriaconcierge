@@ -237,17 +237,12 @@ serve(async (req) => {
   }
 })
 
-// Helper function to process document content
+// Helper function to process document content with better chunking
 async function processDocumentContent(supabaseClient: any, sourceId: string, content: string, sourceName: string) {
   console.log("Processing document content for source:", sourceId)
   
-  // In a real implementation, you would:
-  // 1. Split the document into chunks
-  // 2. Generate embeddings for each chunk using OpenAI
-  // 3. Store the chunks and embeddings in the documents table
-  
-  // For demonstration, we'll create a simple chunk
-  const chunks = splitIntoChunks(content, 1000) // Split into ~1000 character chunks
+  // Split the document into semantic chunks
+  const chunks = splitIntoSemanticChunks(content, 1000) // Split into ~1000 character chunks
   console.log("Split content into", chunks.length, "chunks")
   
   // Get the embedding model configuration
@@ -282,6 +277,12 @@ async function processDocumentContent(supabaseClient: any, sourceId: string, con
     throw new Error("Invalid API key format")
   }
   
+  // Clear existing documents for this source
+  await supabaseClient
+    .from('documents')
+    .delete()
+    .eq('source_id', sourceId)
+  
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i]
     console.log("Processing chunk", i, "length:", chunk.length)
@@ -293,6 +294,7 @@ async function processDocumentContent(supabaseClient: any, sourceId: string, con
         headers: {
           'Authorization': `Bearer ${decryptedApiKey}`,
           'Content-Type': 'application/json'
+          'User-Agent': 'Conversational AI Platform'
         },
         body: JSON.stringify({
           input: chunk,
@@ -318,7 +320,8 @@ async function processDocumentContent(supabaseClient: any, sourceId: string, con
           metadata: {
             source_name: sourceName,
             chunk_index: i,
-            total_chunks: chunks.length
+            total_chunks: chunks.length,
+            processed_at: new Date().toISOString()
           }
         })
       
@@ -335,11 +338,54 @@ async function processDocumentContent(supabaseClient: any, sourceId: string, con
   console.log("Document processing completed for source:", sourceId)
 }
 
-// Simple function to split text into chunks
-function splitIntoChunks(text: string, chunkSize: number): string[] {
+// Enhanced function to split text into semantic chunks
+function splitIntoSemanticChunks(text: string, maxChunkSize: number): string[] {
   const chunks: string[] = []
-  for (let i = 0; i < text.length; i += chunkSize) {
-    chunks.push(text.slice(i, i + chunkSize))
+  const paragraphs = text.split(/\n\s*\n/) // Split by paragraphs
+  
+  let currentChunk = ""
+  
+  for (const paragraph of paragraphs) {
+    // If adding this paragraph would exceed the max chunk size, finalize the current chunk
+    if (currentChunk.length + paragraph.length > maxChunkSize && currentChunk.length > 0) {
+      chunks.push(currentChunk.trim())
+      currentChunk = ""
+    }
+    
+    // If the paragraph itself is larger than maxChunkSize, split it further
+    if (paragraph.length > maxChunkSize) {
+      // If we have a current chunk, save it first
+      if (currentChunk.length > 0) {
+        chunks.push(currentChunk.trim())
+        currentChunk = ""
+      }
+      
+      // Split the large paragraph into sentences
+      const sentences = paragraph.split(/(?<=[.!?])\s+/)
+      let subChunk = ""
+      
+      for (const sentence of sentences) {
+        if (subChunk.length + sentence.length > maxChunkSize && subChunk.length > 0) {
+          chunks.push(subChunk.trim())
+          subChunk = ""
+        }
+        subChunk += sentence + " "
+      }
+      
+      // Add the last sub-chunk if it exists
+      if (subChunk.length > 0) {
+        chunks.push(subChunk.trim())
+      }
+    } else {
+      // Add the paragraph to the current chunk
+      currentChunk += paragraph + "\n\n"
+    }
   }
+  
+  // Add the final chunk if it exists
+  if (currentChunk.length > 0) {
+    chunks.push(currentChunk.trim())
+  }
+  
   return chunks
 }

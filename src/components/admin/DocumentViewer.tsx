@@ -16,7 +16,8 @@ import {
   Calendar, 
   Hash,
   Database,
-  Copy
+  Copy,
+  Info
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -181,8 +182,9 @@ export function DocumentViewer({ open, onOpenChange, sourceId, sourceName }: Doc
           )}
         </div>
         
-        <div className="flex justify-between">
-          <div className="text-sm text-muted-foreground">
+        <div className="flex justify-between items-center">
+          <div className="text-sm text-muted-foreground flex items-center gap-1">
+            <Info className="h-4 w-4" />
             {documents.length} document chunk{documents.length !== 1 ? 's' : ''}
           </div>
           <Button onClick={() => onOpenChange(false)}>

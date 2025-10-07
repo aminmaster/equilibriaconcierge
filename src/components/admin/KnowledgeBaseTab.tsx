@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -20,7 +20,13 @@ import {
   Trash2,
   FileSearch,
   Database,
-  Eye
+  Eye,
+  File,
+  FileImage,
+  FileText as FileTextIcon,
+  FileCode,
+  FileAudio,
+  FileVideo
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -54,6 +60,22 @@ interface Document {
   metadata: any;
 }
 
+// Supported file types
+const SUPPORTED_FILE_TYPES = [
+  'text/plain',
+  'text/html',
+  'text/csv',
+  'application/json',
+  'application/xml',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+];
+
 export function KnowledgeBaseTab() {
   const { toast } = useToast();
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
@@ -65,6 +87,7 @@ export function KnowledgeBaseTab() {
   const [processingProgress, setProcessingProgress] = useState<number | null>(null);
   const [showDocumentViewer, setShowDocumentViewer] = useState(false);
   const [selectedSource, setSelectedSource] = useState<{id: string, name: string} | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load knowledge sources and documents
   const loadKnowledgeData = async () => {
@@ -116,7 +139,29 @@ export function KnowledgeBaseTab() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+      const selectedFile = e.target.files[0];
+      
+      // Validate file type
+      if (!SUPPORTED_FILE_TYPES.includes(selectedFile.type)) {
+        toast({
+          title: "Unsupported file type",
+          description: "Please upload a supported file type (PDF, DOC, DOCX, TXT, etc.).",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Validate file size (100MB limit)
+      if (selectedFile.size > 100 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please upload a file smaller than 100MB.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      setFile(selectedFile);
     }
   };
 
@@ -278,6 +323,45 @@ export function KnowledgeBaseTab() {
     setShowDocumentViewer(true);
   };
 
+  const getFileIcon = (fileName: string) => {
+    const extension = fileName.split('.').pop()?.toLowerCase() || '';
+    
+    switch (extension) {
+      case 'pdf':
+        return <FileTextIcon className="h-5 w-5 text-red-500" />;
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+      case 'svg':
+        return <FileImage className="h-5 w-5 text-blue-500" />;
+      case 'doc':
+      case 'docx':
+        return <FileTextIcon className="h-5 w-5 text-blue-600" />;
+      case 'xls':
+      case 'xlsx':
+        return <FileTextIcon className="h-5 w-5 text-green-600" />;
+      case 'ppt':
+      case 'pptx':
+        return <FileTextIcon className="h-5 w-5 text-orange-500" />;
+      case 'txt':
+        return <FileTextIcon className="h-5 w-5 text-gray-500" />;
+      case 'html':
+      case 'htm':
+        return <FileCode className="h-5 w-5 text-orange-600" />;
+      case 'mp3':
+      case 'wav':
+      case 'ogg':
+        return <FileAudio className="h-5 w-5 text-purple-500" />;
+      case 'mp4':
+      case 'avi':
+      case 'mov':
+        return <FileVideo className="h-5 w-5 text-red-600" />;
+      default:
+        return <File className="h-5 w-5 text-gray-500" />;
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -301,7 +385,9 @@ export function KnowledgeBaseTab() {
                     type="file"
                     className="hidden"
                     id="file-upload"
+                    ref={fileInputRef}
                     onChange={handleFileChange}
+                    accept={SUPPORTED_FILE_TYPES.join(',')}
                   />
                   <Label htmlFor="file-upload">
                     <Button 
@@ -312,6 +398,9 @@ export function KnowledgeBaseTab() {
                       <span>Select File</span>
                     </Button>
                   </Label>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Supported formats: PDF, DOC, DOCX, TXT, HTML, CSV, JSON, XML
+                  </p>
                 </div>
               </div>
             </div>
@@ -406,7 +495,7 @@ export function KnowledgeBaseTab() {
               {sources.map((source) => (
                 <div key={source.id} className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="flex items-center gap-4">
-                    <FileText className="h-8 w-8 text-muted-foreground" />
+                    {getFileIcon(source.name)}
                     <div>
                       <h3 className="font-medium">{source.name}</h3>
                       <div className="flex items-center gap-4 mt-1">
