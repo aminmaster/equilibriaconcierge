@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useConversations } from "@/hooks/use-conversations";
 import { useToast } from "@/hooks/use-toast";
+import { useModelConfig } from "@/hooks/use-model-config";
 
 export const useChat = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -9,71 +10,16 @@ export const useChat = () => {
   const abortControllerRef = useRef<AbortController | null>(null);
   const { currentConversation, addMessage, createConversation } = useConversations();
   const { toast } = useToast();
-
-  // Load model configuration
-  const loadModelConfiguration = async () => {
-    try {
-      console.log("Loading model configurations from database");
-      const { data, error } = await supabase
-        .from('model_configurations')
-        .select('*');
-      
-      console.log("Model configurations data:", data);
-      console.log("Model configurations error:", error);
-      
-      if (error) throw error;
-      
-      if (!data || data.length === 0) {
-        throw new Error("No model configurations found. Please configure models in the admin panel.");
-      }
-      
-      const config: any = {};
-      
-      data.forEach((item: any) => {
-        if (item.type === 'generation') {
-          config.generation = {
-            provider: item.provider,
-            model: item.model,
-            temperature: item.temperature !== null ? item.temperature : 0.7,
-            maxTokens: item.max_tokens || 2048
-          };
-        } else if (item.type === 'embedding') {
-          config.embedding = {
-            provider: item.provider,
-            model: item.model,
-            dimensions: item.dimensions
-          };
-        }
-      });
-      
-      // Validate that we have both generation and embedding configs
-      if (!config.generation) {
-        throw new Error("No generation model configured. Please configure a generation model in the admin panel.");
-      }
-      
-      if (!config.embedding) {
-        throw new Error("No embedding model configured. Please configure an embedding model in the admin panel.");
-      }
-      
-      console.log("Loaded model configuration:", config);
-      return config;
-    } catch (error: any) {
-      console.error("Error loading model configuration:", error);
-      throw error;
-    }
-  };
+  const { config: modelConfig, loading: configLoading } = useModelConfig();
 
   const streamMessage = async (content: string, onChunk: (chunk: string) => void) => {
-    if (isLoading) return;
+    if (isLoading || configLoading) return;
     
     setIsLoading(true);
     setError(null);
     abortControllerRef.current = new AbortController();
     
     try {
-      // Load model configuration
-      const modelConfig = await loadModelConfiguration();
-      
       // Create a new conversation if none exists
       let conversationId = currentConversation?.id;
       if (!conversationId) {
@@ -230,6 +176,7 @@ export const useChat = () => {
     streamMessage,
     cancelStream,
     isLoading,
-    error
+    error,
+    configLoading
   };
 };

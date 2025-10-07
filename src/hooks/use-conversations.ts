@@ -2,21 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useAnonymousSession } from "@/hooks/use-anonymous-session";
-
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  created_at: string;
-}
-
-interface Conversation {
-  id: string;
-  title: string;
-  created_at: string;
-  updated_at: string;
-  messages: Message[];
-}
+import { Conversation, Message } from "@/types/conversation";
 
 export const useConversations = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -180,12 +166,67 @@ export const useConversations = () => {
     return null;
   };
 
+  // Update conversation title
+  const updateConversationTitle = async (conversationId: string, title: string) => {
+    try {
+      const { error } = await supabase
+        .from('conversations')
+        .update({ title, updated_at: new Date().toISOString() })
+        .eq('id', conversationId);
+      
+      if (error) throw error;
+      
+      // Update in state
+      setConversations(prev => 
+        prev.map(conv => 
+          conv.id === conversationId 
+            ? { ...conv, title, updated_at: new Date().toISOString() } 
+            : conv
+        )
+      );
+      
+      if (currentConversation?.id === conversationId) {
+        setCurrentConversation(prev => 
+          prev ? { ...prev, title, updated_at: new Date().toISOString() } : null
+        );
+      }
+    } catch (error: any) {
+      console.error("Error updating conversation title:", error);
+      throw error;
+    }
+  };
+
+  // Delete conversation
+  const deleteConversation = async (conversationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('conversations')
+        .delete()
+        .eq('id', conversationId);
+      
+      if (error) throw error;
+      
+      // Remove from state
+      setConversations(prev => prev.filter(conv => conv.id !== conversationId));
+      
+      // If we're deleting the current conversation, set to null
+      if (currentConversation?.id === conversationId) {
+        setCurrentConversation(null);
+      }
+    } catch (error: any) {
+      console.error("Error deleting conversation:", error);
+      throw error;
+    }
+  };
+
   return {
     conversations,
     currentConversation,
     setCurrentConversation,
     loading,
     createConversation,
-    addMessage
+    addMessage,
+    updateConversationTitle,
+    deleteConversation
   };
 };
