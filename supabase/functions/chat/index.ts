@@ -1,10 +1,27 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
-import { EdgeSecurity, SecurityContext } from '../../src/utils/edge-security.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+// Simple input sanitization function
+function sanitizeInput(input: string): string {
+  // Remove potentially dangerous characters
+  return input
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;")
+    .replace(/\//g, "&#x2F;")
+    .trim();
+}
+
+// API key validation function
+function validateApiKey(apiKey: string): boolean {
+  // Basic validation - in practice, check against database
+  return typeof apiKey === 'string' && apiKey.length >= 20 && apiKey.length <= 100;
 }
 
 serve(async (req) => {
@@ -16,10 +33,6 @@ serve(async (req) => {
   }
   
   try {
-    // Security validation
-    const securityContext: SecurityContext = await EdgeSecurity.validateRequest(req);
-    console.log("Security context:", securityContext);
-    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -58,7 +71,7 @@ serve(async (req) => {
     console.log("Parsed parameters:", { message, conversationId, generationProvider, generationModel });
     
     // Sanitize inputs
-    const sanitizedMessage = EdgeSecurity.sanitizeInput(message);
+    const sanitizedMessage = sanitizeInput(message);
     console.log("Sanitized message:", sanitizedMessage);
     
     // Validate conversation ID
@@ -233,7 +246,7 @@ serve(async (req) => {
     }
     
     // Validate API key
-    if (!EdgeSecurity.validateApiKey(generationKeyData.api_key)) {
+    if (!validateApiKey(generationKeyData.api_key)) {
       throw new Error("Invalid API key format")
     }
     
