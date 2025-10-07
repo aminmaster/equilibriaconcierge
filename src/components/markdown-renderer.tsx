@@ -21,12 +21,18 @@ export const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
         h2: ({ node, ...props }) => <h2 className="text-lg font-bold mt-3 mb-1" {...props} />,
         h3: ({ node, ...props }) => <h3 className="font-bold mt-2 mb-1" {...props} />,
         // Customize code blocks
-        code: ({ node, inline, ...props }) => 
-          inline ? (
-            <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono" {...props} />
+        code: ({ node, className, children, ...props }) => {
+          const match = /language-(\w+)/.exec(className || '');
+          return !match ? (
+            <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
+              {children}
+            </code>
           ) : (
-            <code className="bg-muted p-3 rounded text-sm font-mono block overflow-x-auto" {...props} />
-          ),
+            <code className="bg-muted p-3 rounded text-sm font-mono block overflow-x-auto" {...props}>
+              {children}
+            </code>
+          );
+        },
         // Customize blockquotes
         blockquote: ({ node, ...props }) => (
           <blockquote className="border-l-2 border-muted-foreground pl-4 ml-2 text-muted-foreground" {...props} />

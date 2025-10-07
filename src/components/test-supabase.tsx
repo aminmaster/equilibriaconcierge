@@ -18,7 +18,7 @@ export const TestSupabase = () => {
         if (error) throw error;
         
         setData(data);
-      } catch (err) {
+      } catch (err: any) {
         setError(err.message);
       } finally {
         setLoading(false);

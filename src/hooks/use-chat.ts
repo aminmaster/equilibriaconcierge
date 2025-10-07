@@ -88,11 +88,13 @@ export const useChat = () => {
       
       // Add user message to conversation
       console.log("Adding user message to conversation:", conversationId);
-      const userMessage = await addMessage(conversationId, "user", content);
-      if (!userMessage) {
-        throw new Error("Failed to add user message");
+      if (conversationId) {
+        const userMessage = await addMessage(conversationId, "user", content);
+        if (!userMessage) {
+          throw new Error("Failed to add user message");
+        }
+        console.log("Added user message:", userMessage);
       }
-      console.log("Added user message:", userMessage);
       
       // Get session token (optional - for authenticated users)
       const { data: { session } } = await supabase.auth.getSession();
@@ -147,7 +149,7 @@ export const useChat = () => {
           
           if (done) {
             // Add final AI response to conversation if we haven't added anything yet
-            if (aiResponse.trim()) {
+            if (aiResponse.trim() && conversationId) {
               console.log("Adding AI response to conversation");
               await addMessage(conversationId, "assistant", aiResponse);
             }

@@ -22,6 +22,11 @@ interface EmbeddingConfigSectionProps {
   onConfigChange: (config: any) => void;
 }
 
+interface EmbeddingModel {
+  model: string;
+  dimensions: number;
+}
+
 export function EmbeddingConfigSection({ 
   availableProviders, 
   loadingProviders,
@@ -34,7 +39,7 @@ export function EmbeddingConfigSection({
     model: "text-embedding-3-large",
   });
   
-  const [embeddingModels, setEmbeddingModels] = useState<Array<{model: string, dimensions: number}>>(
+  const [embeddingModels, setEmbeddingModels] = useState<EmbeddingModel[]>(
     defaultEmbeddingModels.openai || []
   );
   const [loadingEmbeddingModels, setLoadingEmbeddingModels] = useState(false);
@@ -176,7 +181,7 @@ export function EmbeddingConfigSection({
         }
         return { model: model.id, dimensions };
       })
-      .sort((a, b) => a.model.localeCompare(b.model));
+      .sort((a: EmbeddingModel, b: EmbeddingModel) => a.model.localeCompare(b.model));
     
     if (embeddingModels.length > 0) {
       console.log("Setting OpenAI embedding models:", embeddingModels);
