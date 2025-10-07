@@ -557,13 +557,14 @@ export function ModelConfigTab() {
                     <SelectValue placeholder="Select generation provider" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableProviders.map((provider) => (
-                      <SelectItem key={provider} value={provider}>
-                        {provider.charAt(0).toUpperCase() + provider.slice(1)}
-                      </SelectItem>
-                    ))}
-                    {availableProviders.length === 0 && (
-                      <SelectItem value="openrouter" disabled>
+                    {availableProviders.length > 0 ? (
+                      availableProviders.map((provider) => (
+                        <SelectItem key={provider} value={provider}>
+                          {provider.charAt(0).toUpperCase() + provider.slice(1)}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="" disabled>
                         No providers available - add API keys first
                       </SelectItem>
                     )}
@@ -582,7 +583,7 @@ export function ModelConfigTab() {
                       variant="ghost" 
                       size="sm" 
                       onClick={() => loadGenerationModelsForProvider(generationConfig.provider)}
-                      disabled={loadingGenerationModels || loadingProviders}
+                      disabled={loadingGenerationModels || loadingProviders || availableProviders.length === 0}
                     >
                       {loadingGenerationModels ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -595,20 +596,23 @@ export function ModelConfigTab() {
                 <Select 
                   value={generationConfig.model} 
                   onValueChange={(value) => setGenerationConfig({...generationConfig, model: value})}
-                  disabled={loadingGenerationModels || loadingProviders}
+                  disabled={loadingGenerationModels || loadingProviders || availableProviders.length === 0}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select generation model" />
                   </SelectTrigger>
                   <SelectContent>
-                    {generationModels.map((model) => (
-                      <SelectItem key={model} value={model}>
-                        {model}
-                      </SelectItem>
-                    ))}
-                    {generationModels.length === 0 && (
+                    {generationModels.length > 0 ? (
+                      generationModels.map((model) => (
+                        <SelectItem key={model} value={model}>
+                          {model}
+                        </SelectItem>
+                      ))
+                    ) : (
                       <SelectItem value="" disabled>
-                        No models available
+                        {availableProviders.length > 0 
+                          ? "No models available for this provider" 
+                          : "Add API keys to see models"}
                       </SelectItem>
                     )}
                   </SelectContent>
@@ -667,13 +671,14 @@ export function ModelConfigTab() {
                     <SelectValue placeholder="Select embedding provider" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableProviders.map((provider) => (
-                      <SelectItem key={provider} value={provider}>
-                        {provider.charAt(0).toUpperCase() + provider.slice(1)}
-                      </SelectItem>
-                    ))}
-                    {availableProviders.length === 0 && (
-                      <SelectItem value="openai" disabled>
+                    {availableProviders.length > 0 ? (
+                      availableProviders.map((provider) => (
+                        <SelectItem key={provider} value={provider}>
+                          {provider.charAt(0).toUpperCase() + provider.slice(1)}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="" disabled>
                         No providers available - add API keys first
                       </SelectItem>
                     )}
@@ -693,7 +698,7 @@ export function ModelConfigTab() {
                         variant="ghost" 
                         size="sm" 
                         onClick={() => loadEmbeddingModelsForProvider(embeddingConfig.provider)}
-                        disabled={loadingEmbeddingModels || loadingProviders}
+                        disabled={loadingEmbeddingModels || loadingProviders || availableProviders.length === 0}
                       >
                         {loadingEmbeddingModels ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -706,20 +711,23 @@ export function ModelConfigTab() {
                   <Select 
                     value={embeddingConfig.model} 
                     onValueChange={handleEmbeddingModelChange}
-                    disabled={loadingEmbeddingModels || loadingProviders}
+                    disabled={loadingEmbeddingModels || loadingProviders || availableProviders.length === 0}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select embedding model" />
                     </SelectTrigger>
                     <SelectContent>
-                      {embeddingModels.map((model) => (
-                        <SelectItem key={model.model} value={model.model}>
-                          {model.model} ({model.dimensions} dimensions)
-                        </SelectItem>
-                      ))}
-                      {embeddingModels.length === 0 && (
+                      {embeddingModels.length > 0 ? (
+                        embeddingModels.map((model) => (
+                          <SelectItem key={model.model} value={model.model}>
+                            {model.model} ({model.dimensions} dimensions)
+                          </SelectItem>
+                        ))
+                      ) : (
                         <SelectItem value="" disabled>
-                          No models available
+                          {availableProviders.length > 0 
+                            ? "No models available for this provider" 
+                            : "Add API keys to see models"}
                         </SelectItem>
                       )}
                     </SelectContent>
@@ -752,7 +760,7 @@ export function ModelConfigTab() {
             <RotateCcw className="h-4 w-4" />
             Reset Defaults
           </Button>
-          <Button onClick={handleSave} className="gap-2" disabled={saving}>
+          <Button onClick={handleSave} className="gap-2" disabled={saving || availableProviders.length === 0}>
             {saving ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -767,19 +775,20 @@ export function ModelConfigTab() {
           </Button>
         </div>
         
-        <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <div className="flex items-start">
-            <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
-            <div>
-              <h4 className="text-sm font-medium text-yellow-800">Provider Information</h4>
-              <p className="text-sm text-yellow-700 mt-1">
-                Only providers with saved API keys are shown above. Add API keys in the "API Keys" tab to enable additional providers.
-                For OpenAI, you can refresh the model list to fetch available models from their API.
-                For OpenRouter, embedding models are provided through OpenAI's API.
-              </p>
+        {availableProviders.length === 0 && (
+          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-start">
+              <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
+              <div>
+                <h4 className="text-sm font-medium text-yellow-800">API Keys Required</h4>
+                <p className="text-sm text-yellow-700 mt-1">
+                  Add API keys in the "API Keys" tab to enable model selection. 
+                  The configuration options above will become available once you add at least one API key.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   );
