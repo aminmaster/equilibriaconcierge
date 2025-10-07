@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useConversations } from "@/hooks/use-conversations";
 import { useToast } from "@/hooks/use-toast";
@@ -11,6 +11,19 @@ export const useChat = () => {
   const { currentConversation, addMessage, createConversation } = useConversations();
   const { toast } = useToast();
   const { config: modelConfig, loading: configLoading } = useModelConfig();
+  
+  // Memory management for large conversations
+  const [messageBuffer, setMessageBuffer] = useState<string[]>([]);
+  const MAX_BUFFER_SIZE = 100;
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   const streamMessage = async (content: string, onChunk: (chunk: string) => void) => {
     if (isLoading || configLoading) return;
@@ -126,6 +139,16 @@ export const useChat = () => {
                 if (parsed.choices?.[0]?.delta?.content) {
                   const content = parsed.choices[0].delta.content;
                   aiResponse += content;
+                  
+                  // Manage message buffer for memory efficiency
+                  setMessageBuffer(prev => {
+                    const newBuffer = [...prev, content];
+                    if (newBuffer.length > MAX_BUFFER_SIZE) {
+                      return newBuffer.slice(-MAX_BUFFER_SIZE);
+                    }
+                    return newBuffer;
+                  });
+                  
                   onChunk(content);
                 }
               } catch (e) {
@@ -145,6 +168,16 @@ export const useChat = () => {
               if (parsed.choices?.[0]?.delta?.content) {
                 const content = parsed.choices[0].delta.content;
                 aiResponse += content;
+                
+                // Manage message buffer for memory efficiency
+                setMessageBuffer(prev => {
+                  const newBuffer = [...prev, content];
+                  if (newBuffer.length > MAX_BUFFER_SIZE) {
+                    return newBuffer.slice(-MAX_BUFFER_SIZE);
+                  }
+                  return newBuffer;
+                });
+                
                 onChunk(content);
               }
             } catch (e) {
@@ -194,11 +227,18 @@ export const useChat = () => {
     }
   };
 
+  // Clear message buffer
+  const clearBuffer = () => {
+    setMessageBuffer([]);
+  };
+
   return {
     streamMessage,
     cancelStream,
     isLoading,
     error,
-    configLoading
+    configLoading,
+    messageBuffer,
+    clearBuffer
   };
 };

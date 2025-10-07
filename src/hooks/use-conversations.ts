@@ -3,77 +3,117 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useAnonymousSession } from "@/hooks/use-anonymous-session";
 import { Conversation, Message } from "@/types/conversation";
+import { apiCache } from "@/utils/cache";
+
+const CONVERSATIONS_CACHE_KEY = "conversations";
+const MESSAGES_PER_PAGE = 20;
 
 export const useConversations = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const { user } = useAuth();
   const { sessionId, isAnonymous } = useAnonymousSession();
 
-  // Load conversations
-  useEffect(() => {
-    const loadConversations = async () => {
+  // Load conversations with pagination
+  const loadConversations = async (page: number = 1) => {
+    if (page === 1) {
       setLoading(true);
-      
-      try {
-        let query = supabase
-          .from('conversations')
-          .select(`
-            id, 
-            title, 
-            created_at, 
-            updated_at,
-            messages (id, role, content, created_at)
-          `)
-          .order('updated_at', { ascending: false });
-        
-        // Filter by user or session
-        if (user?.id) {
-          query = query.eq('user_id', user.id);
-        } else if (sessionId && isAnonymous) {
-          query = query.eq('session_id', sessionId);
-        } else {
-          // No user or session, don't load conversations
-          setConversations([]);
+    } else {
+      setLoadingMore(true);
+    }
+    
+    try {
+      // Check cache for first page
+      if (page === 1) {
+        const cachedConversations = apiCache.get(CONVERSATIONS_CACHE_KEY);
+        if (cachedConversations) {
+          setConversations(cachedConversations);
           setLoading(false);
           return;
         }
-        
-        const { data, error } = await query;
-        
-        if (error) {
-          console.error("Error loading conversations:", error);
+      }
+      
+      let query = supabase
+        .from('conversations')
+        .select(`
+          id, 
+          title, 
+          created_at, 
+          updated_at,
+          messages (id, role, content, created_at)
+        `)
+        .order('updated_at', { ascending: false })
+        .range((page - 1) * MESSAGES_PER_PAGE, page * MESSAGES_PER_PAGE - 1);
+      
+      // Filter by user or session
+      if (user?.id) {
+        query = query.eq('user_id', user.id);
+      } else if (sessionId && isAnonymous) {
+        query = query.eq('session_id', sessionId);
+      } else {
+        // No user or session, don't load conversations
+        if (page === 1) {
           setConversations([]);
-        } else if (data) {
-          const sortedConversations = data.map((conv: any) => ({
-            ...conv,
-            messages: conv.messages ? conv.messages.sort((a: any, b: any) => 
-              new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-            ) : []
-          }));
-          
+          apiCache.set(CONVERSATIONS_CACHE_KEY, []);
+        }
+        setLoading(false);
+        setLoadingMore(false);
+        return;
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) {
+        console.error("Error loading conversations:", error);
+        if (page === 1) {
+          setConversations([]);
+          apiCache.set(CONVERSATIONS_CACHE_KEY, []);
+        }
+      } else if (data) {
+        const sortedConversations = data.map((conv: any) => ({
+          ...conv,
+          messages: conv.messages ? conv.messages.sort((a: any, b: any) => 
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          ) : []
+        }));
+        
+        if (page === 1) {
           setConversations(sortedConversations);
-          
+          apiCache.set(CONVERSATIONS_CACHE_KEY, sortedConversations);
           // Set current conversation if we don't have one yet
           if (!currentConversation && sortedConversations.length > 0) {
             setCurrentConversation(sortedConversations[0]);
           }
+        } else {
+          setConversations(prev => [...prev, ...sortedConversations]);
         }
-      } catch (error) {
-        console.error("Error loading conversations:", error);
-        setConversations([]);
-      } finally {
-        setLoading(false);
+        
+        // Check if we have more data
+        setHasMore(data.length === MESSAGES_PER_PAGE);
       }
-    };
-    
-    if (user || (sessionId && isAnonymous)) {
-      loadConversations();
-    } else {
-      setLoading(false);
+    } catch (error) {
+      console.error("Error loading conversations:", error);
+      if (page === 1) {
+        setConversations([]);
+        apiCache.set(CONVERSATIONS_CACHE_KEY, []);
+      }
+    } finally {
+      if (page === 1) {
+        setLoading(false);
+      } else {
+        setLoadingMore(false);
+      }
     }
-  }, [user, sessionId, isAnonymous]);
+  };
+
+  // Load more conversations
+  const loadMoreConversations = () => {
+    const nextPage = Math.floor(conversations.length / MESSAGES_PER_PAGE) + 1;
+    loadConversations(nextPage);
+  };
 
   // Create a new conversation
   const createConversation = async (title: string) => {
@@ -110,6 +150,8 @@ export const useConversations = () => {
         const newConversation = { ...data, messages: [] };
         setConversations(prev => [newConversation, ...prev]);
         setCurrentConversation(newConversation);
+        // Update cache
+        apiCache.set(CONVERSATIONS_CACHE_KEY, [newConversation, ...conversations]);
         return newConversation;
       }
     } catch (error: any) {
@@ -194,6 +236,9 @@ export const useConversations = () => {
           prev ? { ...prev, title, updated_at: new Date().toISOString() } : null
         );
       }
+      
+      // Update cache
+      apiCache.set(CONVERSATIONS_CACHE_KEY, conversations);
     } catch (error: any) {
       console.error("Error updating conversation title:", error);
       throw error;
@@ -211,23 +256,39 @@ export const useConversations = () => {
       if (error) throw error;
       
       // Remove from state
-      setConversations(prev => prev.filter(conv => conv.id !== conversationId));
+      const updatedConversations = conversations.filter(conv => conv.id !== conversationId);
+      setConversations(updatedConversations);
       
       // If we're deleting the current conversation, set to null
       if (currentConversation?.id === conversationId) {
         setCurrentConversation(null);
       }
+      
+      // Update cache
+      apiCache.set(CONVERSATIONS_CACHE_KEY, updatedConversations);
     } catch (error: any) {
       console.error("Error deleting conversation:", error);
       throw error;
     }
   };
 
+  // Load initial conversations
+  useEffect(() => {
+    if (user || (sessionId && isAnonymous)) {
+      loadConversations();
+    } else {
+      setLoading(false);
+    }
+  }, [user, sessionId, isAnonymous]);
+
   return {
     conversations,
     currentConversation,
     setCurrentConversation,
     loading,
+    loadingMore,
+    hasMore,
+    loadMoreConversations,
     createConversation,
     addMessage,
     updateConversationTitle,

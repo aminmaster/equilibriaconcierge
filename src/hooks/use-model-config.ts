@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ModelConfigurations } from "@/types/models";
 import { useToast } from "@/hooks/use-toast";
+import { modelCache } from "@/utils/cache";
 
 const DEFAULT_GENERATION_CONFIG = {
   provider: "openrouter",
@@ -15,6 +16,8 @@ const DEFAULT_EMBEDDING_CONFIG = {
   model: "text-embedding-3-large",
   dimensions: 3072
 };
+
+const CACHE_KEY = "model_config";
 
 export const useModelConfig = () => {
   const [config, setConfig] = useState<ModelConfigurations>({
@@ -30,6 +33,14 @@ export const useModelConfig = () => {
     setError(null);
     
     try {
+      // Check cache first
+      const cachedConfig = modelCache.get(CACHE_KEY);
+      if (cachedConfig) {
+        setConfig(cachedConfig);
+        setLoading(false);
+        return;
+      }
+      
       const { data, error: fetchError } = await supabase
         .from('model_configurations')
         .select('*');
@@ -38,10 +49,12 @@ export const useModelConfig = () => {
       
       if (!data || data.length === 0) {
         // Return defaults if no config found
-        setConfig({
+        const defaultConfig = {
           generation: DEFAULT_GENERATION_CONFIG,
           embedding: DEFAULT_EMBEDDING_CONFIG
-        });
+        };
+        setConfig(defaultConfig);
+        modelCache.set(CACHE_KEY, defaultConfig);
         return;
       }
       
@@ -65,18 +78,23 @@ export const useModelConfig = () => {
       });
       
       // Fill in defaults for missing configs
-      setConfig({
+      const finalConfig = {
         generation: newConfig.generation || DEFAULT_GENERATION_CONFIG,
         embedding: newConfig.embedding || DEFAULT_EMBEDDING_CONFIG
-      });
+      };
+      
+      setConfig(finalConfig);
+      modelCache.set(CACHE_KEY, finalConfig);
     } catch (err: any) {
       console.error("Error loading model config:", err);
       setError(err.message);
       // Use defaults on error
-      setConfig({
+      const defaultConfig = {
         generation: DEFAULT_GENERATION_CONFIG,
         embedding: DEFAULT_EMBEDDING_CONFIG
-      });
+      };
+      setConfig(defaultConfig);
+      modelCache.set(CACHE_KEY, defaultConfig);
       toast({
         title: "Configuration Error",
         description: "Using default model configuration",
@@ -128,8 +146,9 @@ export const useModelConfig = () => {
       
       if (embeddingError) throw embeddingError;
       
-      // Update local state
+      // Update local state and cache
       setConfig(newConfig);
+      modelCache.set(CACHE_KEY, newConfig);
       
       toast({
         title: "Configuration Saved",
