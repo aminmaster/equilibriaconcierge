@@ -110,10 +110,18 @@ export function ModelConfigTab() {
   const handleSave = async () => {
     setSaving(true);
     
+    console.log("Attempting to save configuration");
+    console.log("Generation config:", generationConfig);
+    console.log("Embedding config:", embeddingConfig);
+    
     try {
       // Validate that we have config data
-      if (!generationConfig || !embeddingConfig) {
-        throw new Error("Configuration data not available. Please make a selection first.");
+      if (!generationConfig) {
+        throw new Error("Generation configuration data not available. Please make a selection first.");
+      }
+      
+      if (!embeddingConfig) {
+        throw new Error("Embedding configuration data not available. Please make a selection first.");
       }
       
       // Save generation configuration
