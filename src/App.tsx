@@ -10,6 +10,7 @@ import Test from "./pages/Test";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
 import UpdatePassword from "./pages/UpdatePassword";
+import FullscreenView from "./pages/FullscreenView";
 import { ProtectedRoute } from "@/components/protected-route";
 import { ErrorBoundary } from "@/components/error-boundary";
 
@@ -21,6 +22,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/concierge" element={<Concierge />} />
+            <Route path="/fullscreen" element={<FullscreenView />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/auth/reset-password" element={<ResetPassword />} />
             <Route path="/auth/update-password" element={<UpdatePassword />} />

@@ -40,10 +40,12 @@ import {
   Trash2,
   Chrome,
   Github,
-  Settings
+  Settings,
+  BarChart3
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { AnalyticsDashboard } from "@/components/analytics-dashboard";
 
 export default function Account() {
   const { user, signOut } = useAuth();
@@ -276,6 +278,14 @@ export default function Account() {
                     Appearance
                   </Button>
                   <Button
+                    variant={activeTab === "analytics" ? "secondary" : "ghost"}
+                    className="w-full justify-start gap-2"
+                    onClick={() => setActiveTab("analytics")}
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                    Analytics
+                  </Button>
+                  <Button
                     variant={activeTab === "security" ? "secondary" : "ghost"}
                     className="w-full justify-start gap-2"
                     onClick={() => setActiveTab("security")}
@@ -490,6 +500,20 @@ export default function Account() {
                   <div className="flex justify-end">
                     <Button onClick={handleSaveAppearance}>Save Appearance</Button>
                   </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeTab === "analytics" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Analytics</CardTitle>
+                  <CardDescription>
+                    View your usage statistics and conversation analytics
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <AnalyticsDashboard />
                 </CardContent>
               </Card>
             )}
