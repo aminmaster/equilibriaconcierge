@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -69,9 +69,9 @@ export function ModelConfigTab() {
   const [loadingProviders, setLoadingProviders] = useState(true);
   const [saving, setSaving] = useState(false);
   
-  // Refs to get current config values from child components
-  const generationConfigRef = useRef<any>(null);
-  const embeddingConfigRef = useRef<any>(null);
+  // State to hold current config values from child components
+  const [generationConfig, setGenerationConfig] = useState<any>(null);
+  const [embeddingConfig, setEmbeddingConfig] = useState<any>(null);
 
   // Load available providers based on saved API keys
   const loadAvailableProviders = async () => {
@@ -111,12 +111,9 @@ export function ModelConfigTab() {
     setSaving(true);
     
     try {
-      // Get current config values from refs
-      const generationConfig = generationConfigRef.current;
-      const embeddingConfig = embeddingConfigRef.current;
-      
+      // Validate that we have config data
       if (!generationConfig || !embeddingConfig) {
-        throw new Error("Configuration data not available");
+        throw new Error("Configuration data not available. Please make a selection first.");
       }
       
       // Save generation configuration
@@ -259,7 +256,7 @@ export function ModelConfigTab() {
               availableProviders={availableProviders}
               loadingProviders={loadingProviders}
               defaultProviderModels={DEFAULT_PROVIDER_MODELS}
-              ref={generationConfigRef}
+              onConfigChange={setGenerationConfig}
             />
           </div>
         )}
@@ -271,7 +268,7 @@ export function ModelConfigTab() {
               availableProviders={availableProviders}
               loadingProviders={loadingProviders}
               defaultEmbeddingModels={DEFAULT_EMBEDDING_MODELS}
-              ref={embeddingConfigRef}
+              onConfigChange={setEmbeddingConfig}
             />
           </div>
         )}
