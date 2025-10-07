@@ -381,6 +381,22 @@ serve(async (req) => {
           stream: true
         })
       })
+    } else if (generationProvider === 'anthropic') {
+      // Native Anthropic support: different endpoint, header, and body format
+      apiResponse = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': decryptedGenerationKey,  // Anthropic uses x-api-key header
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: generationModel,  // Dynamic model from config
+          max_tokens: 1024,  // Fixed for streaming; can be made dynamic from config
+          messages: allMessages,  // Same message format as OpenAI
+          stream: true
+        })
+      })
     } else {
       // Default to OpenRouter for other providers
       apiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
