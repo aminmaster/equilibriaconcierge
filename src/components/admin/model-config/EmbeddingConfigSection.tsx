@@ -55,7 +55,7 @@ export function EmbeddingConfigSection({
       if (!embeddingError && embeddingData) {
         const defaultModels = defaultEmbeddingModels[embeddingData.provider as keyof typeof defaultEmbeddingModels] || 
                              defaultEmbeddingModels.openai || [];
-        const defaultModel = defaultModels[0] || { model: "text-embedding-3-large", dimensions: 3072 };
+        const defaultModel = defaultModels.length > 0 ? defaultModels[0] : { model: "text-embedding-3-large", dimensions: 3072 };
         
         const newConfig = {
           provider: embeddingData.provider || "openai",
@@ -150,12 +150,13 @@ export function EmbeddingConfigSection({
     const embeddingModels = result.data
       .filter((model: any) => model.id.includes('embedding'))
       .map((model: any) => {
-        let dimensions = 1536;
-        if (model.id === "text-embedding-3-large") {
+        // Dynamically determine dimensions based on model name
+        let dimensions = 1536; // Default fallback
+        if (model.id.includes('embedding-3-large')) {
           dimensions = 3072;
-        } else if (model.id === "text-embedding-3-small") {
+        } else if (model.id.includes('embedding-3-small')) {
           dimensions = 1536;
-        } else if (model.id === "text-embedding-ada-002") {
+        } else if (model.id.includes('embedding-ada')) {
           dimensions = 1536;
         }
         return { model: model.id, dimensions };
@@ -168,8 +169,7 @@ export function EmbeddingConfigSection({
       
       // Update the current config with the first model if it matches
       const firstModel = embeddingModels[0];
-      if (embeddingConfig.model === firstModel.model || 
-          (embeddingConfig.model === "text-embedding-3-large" && firstModel.model.includes("text-embedding-3-large"))) {
+      if (embeddingConfig.model === firstModel.model) {
         setEmbeddingConfig(prev => ({
           ...prev,
           model: firstModel.model
@@ -194,7 +194,7 @@ export function EmbeddingConfigSection({
     console.log("Changing embedding provider to:", provider);
     const defaultModels = defaultEmbeddingModels[provider as keyof typeof defaultEmbeddingModels] || 
                          defaultEmbeddingModels.openai || [];
-    const defaultModel = defaultModels[0] || { model: "text-embedding-3-large", dimensions: 3072 };
+    const defaultModel = defaultModels.length > 0 ? defaultModels[0] : { model: "text-embedding-3-large", dimensions: 3072 };
     
     setEmbeddingConfig(prev => ({
       ...prev,
@@ -217,7 +217,7 @@ export function EmbeddingConfigSection({
   // Get dimensions for the currently selected model
   const getCurrentModelDimensions = () => {
     const selectedModel = embeddingModels.find(m => m.model === embeddingConfig.model);
-    return selectedModel ? selectedModel.dimensions : 1536; // Default fallback
+    return selectedModel ? selectedModel.dimensions : 0; // Return 0 if no model found
   };
 
   console.log("Rendering EmbeddingConfigSection");
@@ -309,7 +309,7 @@ export function EmbeddingConfigSection({
             <Label>Dimensions</Label>
             <Input
               type="number"
-              value={getCurrentModelDimensions()}
+              value={getCurrentModelDimensions() || ""}
               disabled
             />
             <p className="text-sm text-muted-foreground">
