@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -20,16 +20,12 @@ import {
 } from "@/components/ui/select";
 import { 
   CheckCircle,
-  XCircle
+  XCircle,
+  Loader2,
+  TestTube
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-
-interface ApiKey {
-  id: string;
-  provider: string;
-  created_at: string;
-}
+import { useApiKeys } from "@/hooks/use-api-keys";
 
 const availableProviders = [
   { id: "openrouter", name: "OpenRouter" },
@@ -39,56 +35,18 @@ const availableProviders = [
 ];
 
 export function ApiKeysTab() {
+  const { 
+    apiKeys, 
+    loading, 
+    addApiKey, 
+    deleteApiKey, 
+    testApiKey 
+  } = useApiKeys();
   const { toast } = useToast();
-  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [newApiKey, setNewApiKey] = useState({ provider: "", key: "" });
-  const [loading, setLoading] = useState(false);
-  const [providerStatus, setProviderStatus] = useState<Record<string, boolean>>({});
+  const [testingKeys, setTestingKeys] = useState<Record<string, boolean>>({});
 
-  // Load API keys on component mount
-  useEffect(() => {
-    loadApiKeys();
-  }, []);
-
-  const loadApiKeys = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('api_keys')
-        .select('id, provider, created_at')
-        .order('created_at', { ascending: false });
-      
-      if (error) {
-        console.error("Database error:", error);
-        toast({
-          title: "Failed to Load API Keys",
-          description: error.message || "Could not fetch API keys.",
-          variant: "destructive",
-        });
-        setApiKeys([]);
-      } else if (data) {
-        setApiKeys(data);
-        
-        // Update provider status
-        const status: Record<string, boolean> = {};
-        data.forEach((key: ApiKey) => {
-          status[key.provider] = true;
-        });
-        setProviderStatus(status);
-      }
-    } catch (error: any) {
-      toast({
-        title: "Failed to Load API Keys",
-        description: error.message || "Could not fetch API keys.",
-        variant: "destructive",
-      });
-      setApiKeys([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const addApiKey = async () => {
+  const handleAddApiKey = async () => {
     if (!newApiKey.provider || !newApiKey.key) {
       toast({
         title: "Missing Information",
@@ -99,60 +57,27 @@ export function ApiKeysTab() {
     }
     
     try {
-      const { data, error } = await supabase
-        .from('api_keys')
-        .insert([{
-          provider: newApiKey.provider,
-          api_key: newApiKey.key
-        }])
-        .select('id, provider, created_at');
-      
-      if (error) {
-        throw new Error(error.message);
-      } else if (data && data.length > 0) {
-        setApiKeys([data[0], ...apiKeys]);
-        setNewApiKey({ provider: "", key: "" });
-        setProviderStatus({ ...providerStatus, [newApiKey.provider]: true });
-        
-        toast({
-          title: "API Key Added",
-          description: `Successfully added API key for ${newApiKey.provider}.`,
-        });
-      }
-    } catch (error: any) {
-      toast({
-        title: "Failed to Add API Key",
-        description: error.message || "Could not add API key.",
-        variant: "destructive",
-      });
+      await addApiKey(newApiKey.provider, newApiKey.key);
+      setNewApiKey({ provider: "", key: "" });
+    } catch (error) {
+      // Error is already handled in the hook
     }
   };
 
-  const deleteApiKey = async (id: string, provider: string) => {
+  const handleTestApiKey = async (id: string, provider: string) => {
+    setTestingKeys(prev => ({ ...prev, [id]: true }));
     try {
-      const { error } = await supabase
-        .from('api_keys')
-        .delete()
-        .eq('id', id);
-      
-      if (error) {
-        throw new Error(error.message);
-      } else {
-        setApiKeys(apiKeys.filter(key => key.id !== id));
-        setProviderStatus({ ...providerStatus, [provider]: false });
-        
-        toast({
-          title: "API Key Deleted",
-          description: `Successfully deleted API key for ${provider}.`,
-        });
-      }
-    } catch (error: any) {
-      toast({
-        title: "Failed to Delete API Key",
-        description: error.message || "Could not delete API key.",
-        variant: "destructive",
-      });
+      await testApiKey(id, provider);
+    } catch (error) {
+      // Error is already handled in the hook
+    } finally {
+      setTestingKeys(prev => ({ ...prev, [id]: false }));
     }
+  };
+
+  const maskApiKey = (key: string): string => {
+    if (key.length <= 8) return "••••••••";
+    return `${key.substring(0, 4)}••••${key.substring(key.length - 4)}`;
   };
 
   return (
@@ -160,7 +85,7 @@ export function ApiKeysTab() {
       <CardHeader>
         <CardTitle>API Keys</CardTitle>
         <CardDescription>
-          Securely manage your API keys
+          Securely manage your API keys for different providers
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -190,8 +115,11 @@ export function ApiKeysTab() {
                 onChange={(e) => setNewApiKey({...newApiKey, key: e.target.value})}
                 className="flex-1"
               />
-              <Button onClick={addApiKey}>Add</Button>
+              <Button onClick={handleAddApiKey}>Add</Button>
             </div>
+            <p className="text-sm text-muted-foreground">
+              API keys are encrypted before being stored in the database for security.
+            </p>
           </div>
           
           <div className="space-y-2">
@@ -209,27 +137,37 @@ export function ApiKeysTab() {
                 {apiKeys.map((key) => (
                   <div key={key.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center gap-3">
-                      {providerStatus[key.provider] ? (
-                        <CheckCircle className="h-5 w-5 text-green-500" />
-                      ) : (
-                        <XCircle className="h-5 w-5 text-red-500" />
-                      )}
                       <div>
                         <p className="font-medium">
                           {availableProviders.find(p => p.id === key.provider)?.name || key.provider}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Added {new Date(key.created_at).toLocaleDateString()}
+                          {maskApiKey(key.api_key)} • Added {new Date(key.created_at).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
-                    <Button 
-                      variant="destructive" 
-                      size="sm" 
-                      onClick={() => deleteApiKey(key.id, key.provider)}
-                    >
-                      Remove
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleTestApiKey(key.id, key.provider)}
+                        disabled={testingKeys[key.id]}
+                      >
+                        {testingKeys[key.id] ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <TestTube className="h-4 w-4" />
+                        )}
+                        Test
+                      </Button>
+                      <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        onClick={() => deleteApiKey(key.id, key.provider)}
+                      >
+                        Remove
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
