@@ -1,25 +1,20 @@
 import { useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useConversations } from "@/hooks/use-conversations";
-import { useToast } from "@/hooks/use-toast";
 
 export const useChat = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const { currentConversation, addMessage, createConversation } = useConversations();
-  const { toast } = useToast();
 
   // Load model configuration
   const loadModelConfiguration = async () => {
     try {
-      console.log("Loading model configurations from database");
       const { data, error } = await supabase
         .from('model_configurations')
-        .select('*');
-      
-      console.log("Model configurations data:", data);
-      console.log("Model configurations error:", error);
+        .select('*')
+        .in('type', ['generation', 'embedding']);
       
       if (error) throw error;
       
@@ -203,21 +198,6 @@ export const useChat = () => {
     } catch (err: any) {
       console.error("Chat error:", err);
       setError(err.message || "Failed to send message");
-      
-      // Show toast notification for model configuration errors
-      if (err.message?.includes("model configurations") || err.message?.includes("configure models")) {
-        toast({
-          title: "Model Configuration Required",
-          description: "Please configure AI models in the admin panel before using the chat.",
-          variant: "destructive"
-        });
-      } else if (err.message?.includes("API key")) {
-        toast({
-          title: "API Key Required",
-          description: "Please add API keys in the admin panel before using the chat.",
-          variant: "destructive"
-        });
-      }
     } finally {
       setIsLoading(false);
       abortControllerRef.current = null;

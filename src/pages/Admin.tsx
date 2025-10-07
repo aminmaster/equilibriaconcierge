@@ -17,9 +17,7 @@ import {
   Settings,
   Bug,
   LogOut,
-  User,
-  AlertCircle,
-  CheckCircle
+  User
 } from "lucide-react";
 import { KnowledgeBaseTab } from "@/components/admin/KnowledgeBaseTab";
 import { ApiKeysTab } from "@/components/admin/ApiKeysTab";
@@ -27,7 +25,6 @@ import { ModelConfigTab } from "@/components/admin/ModelConfigTab";
 import { AdminAccessCheck } from "@/components/admin/AdminAccessCheck";
 import { TestApiKey } from "@/components/admin/TestApiKey";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 
 export default function Admin() {
   const { user, loading: authLoading, signOut } = useAuth();
@@ -35,36 +32,16 @@ export default function Admin() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("knowledge");
   const [isAdmin, setIsAdmin] = useState(false);
-  const [hasApiKeys, setHasApiKeys] = useState(false);
-  const [hasModelConfigs, setHasModelConfigs] = useState(false);
 
-  // Check if user is admin and check for existing configurations
+  // Check if user is admin
   useEffect(() => {
-    const checkAdminAndConfigs = async () => {
+    const checkAdmin = async () => {
       if (user?.role === 'admin') {
         setIsAdmin(true);
-        
-        // Check for API keys
-        const { data: apiKeysData, error: apiKeysError } = await supabase
-          .from('api_keys')
-          .select('id');
-        
-        if (!apiKeysError && apiKeysData && apiKeysData.length > 0) {
-          setHasApiKeys(true);
-        }
-        
-        // Check for model configurations
-        const { data: modelConfigsData, error: modelConfigsError } = await supabase
-          .from('model_configurations')
-          .select('id');
-        
-        if (!modelConfigsError && modelConfigsData && modelConfigsData.length > 0) {
-          setHasModelConfigs(true);
-        }
       }
     };
     
-    checkAdminAndConfigs();
+    checkAdmin();
   }, [user]);
 
   const handleSignOut = async () => {
@@ -148,70 +125,6 @@ export default function Admin() {
             </Button>
           </div>
         </div>
-
-        {/* Setup Guide for First-Time Users */}
-        {(!hasApiKeys || !hasModelConfigs) && (
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-yellow-500" />
-                Setup Required
-              </CardTitle>
-              <CardDescription>
-                Complete the following steps to get your AI platform running
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  {hasApiKeys ? (
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                  ) : (
-                    <AlertCircle className="h-5 w-5 text-yellow-500" />
-                  )}
-                  <div>
-                    <h3 className="font-medium">Add API Keys</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Add your OpenAI or OpenRouter API keys to enable AI functionality
-                    </p>
-                  </div>
-                  {!hasApiKeys && (
-                    <Button 
-                      size="sm" 
-                      onClick={() => setActiveTab("api")}
-                      variant="outline"
-                    >
-                      Configure
-                    </Button>
-                  )}
-                </div>
-                
-                <div className="flex items-center gap-3">
-                  {hasModelConfigs ? (
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                  ) : (
-                    <AlertCircle className="h-5 w-5 text-yellow-500" />
-                  )}
-                  <div>
-                    <h3 className="font-medium">Configure Models</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Set up the AI models for generation and embedding
-                    </p>
-                  </div>
-                  {!hasModelConfigs && (
-                    <Button 
-                      size="sm" 
-                      onClick={() => setActiveTab("model")}
-                      variant="outline"
-                    >
-                      Configure
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-1">
