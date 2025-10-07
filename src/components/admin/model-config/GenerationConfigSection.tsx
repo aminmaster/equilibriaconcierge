@@ -35,7 +35,7 @@ export function GenerationConfigSection({
   });
   
   const [generationModels, setGenerationModels] = useState<string[]>(
-    defaultProviderModels.openrouter
+    defaultProviderModels.openrouter || []
   );
   const [loadingGenerationModels, setLoadingGenerationModels] = useState(false);
   const { toast } = useToast();
@@ -43,6 +43,7 @@ export function GenerationConfigSection({
   // Load model configurations from database
   const loadModelConfigurations = async () => {
     try {
+      console.log("Loading generation model configurations");
       // Load generation config
       const { data: generationData, error: generationError } = await supabase
         .from('model_configurations')
@@ -50,14 +51,21 @@ export function GenerationConfigSection({
         .eq('type', 'generation')
         .single();
       
+      console.log("Generation config data:", generationData);
+      console.log("Generation config error:", generationError);
+      
       if (!generationError && generationData) {
+        const defaultModels = defaultProviderModels[generationData.provider as keyof typeof defaultProviderModels] || 
+                             defaultProviderModels.openrouter || [];
+        
         const newConfig = {
           provider: generationData.provider || "openrouter",
-          model: generationData.model || "openai/gpt-4o",
+          model: generationData.model || (defaultModels[0] || "openai/gpt-4o"),
           temperature: generationData.temperature !== null ? generationData.temperature : 0.7,
           maxTokens: generationData.max_tokens || 2048,
         };
         
+        console.log("Setting generation config:", newConfig);
         setGenerationConfig(newConfig);
         
         // Load models for the saved provider
@@ -76,6 +84,7 @@ export function GenerationConfigSection({
   const loadGenerationModelsForProvider = async (provider: string) => {
     setLoadingGenerationModels(true);
     try {
+      console.log("Loading models for provider:", provider);
       if (provider === "openai") {
         await fetchOpenAIModels();
       } else if (provider === "openrouter") {
@@ -100,6 +109,7 @@ export function GenerationConfigSection({
   };
 
   const fetchOpenAIModels = async () => {
+    console.log("Fetching OpenAI models");
     // Get OpenAI API key from database
     const { data, error } = await supabase
       .from('api_keys')
@@ -108,10 +118,12 @@ export function GenerationConfigSection({
       .single();
 
     if (error) {
+      console.log("OpenAI API key error:", error);
       setGenerationModels(defaultProviderModels.openai || []);
       return;
     }
     if (!data) {
+      console.log("No OpenAI API key found");
       setGenerationModels(defaultProviderModels.openai || []);
       return;
     }
@@ -125,6 +137,7 @@ export function GenerationConfigSection({
     });
 
     if (!response.ok) {
+      console.log("OpenAI API response not ok");
       setGenerationModels(defaultProviderModels.openai || []);
       return;
     }
@@ -144,13 +157,16 @@ export function GenerationConfigSection({
       .sort();
     
     if (chatModels.length > 0) {
+      console.log("Setting OpenAI chat models:", chatModels);
       setGenerationModels(chatModels);
     } else {
+      console.log("No chat models found, using defaults");
       setGenerationModels(defaultProviderModels.openai || []);
     }
   };
 
   const fetchOpenRouterModels = async () => {
+    console.log("Fetching OpenRouter models");
     // Get OpenRouter API key from database
     const { data, error } = await supabase
       .from('api_keys')
@@ -159,10 +175,12 @@ export function GenerationConfigSection({
       .single();
 
     if (error) {
+      console.log("OpenRouter API key error:", error);
       setGenerationModels(defaultProviderModels.openrouter || []);
       return;
     }
     if (!data) {
+      console.log("No OpenRouter API key found");
       setGenerationModels(defaultProviderModels.openrouter || []);
       return;
     }
@@ -176,6 +194,7 @@ export function GenerationConfigSection({
     });
 
     if (!response.ok) {
+      console.log("OpenRouter API response not ok");
       setGenerationModels(defaultProviderModels.openrouter || []);
       return;
     }
@@ -188,19 +207,25 @@ export function GenerationConfigSection({
       .sort();
     
     if (models.length > 0) {
+      console.log("Setting OpenRouter models:", models);
       setGenerationModels(models);
     } else {
+      console.log("No models found, using defaults");
       setGenerationModels(defaultProviderModels.openrouter || []);
     }
   };
 
   // Load configurations on component mount
   useEffect(() => {
+    console.log("GenerationConfigSection mounted");
+    console.log("Available providers:", availableProviders);
+    console.log("Default provider models:", defaultProviderModels);
     loadModelConfigurations();
   }, []);
 
   // Update generation models when provider changes
   const handleGenerationProviderChange = (provider: string) => {
+    console.log("Changing provider to:", provider);
     const defaultModels = defaultProviderModels[provider as keyof typeof defaultProviderModels] || 
                          defaultProviderModels.openrouter || [];
     
@@ -214,8 +239,12 @@ export function GenerationConfigSection({
     loadGenerationModelsForProvider(provider);
   };
 
+  console.log("Rendering GenerationConfigSection");
+  console.log("Generation config:", generationConfig);
+  console.log("Generation models:", generationModels);
+
   return (
-    <div className="space-y-6 pt-4">
+    <div className="space-y-6">
       <div className="space-y-4">
         <div className="space-y-2">
           <Label>Generation Provider</Label>

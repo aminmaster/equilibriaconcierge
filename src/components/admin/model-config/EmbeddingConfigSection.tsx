@@ -42,12 +42,16 @@ export function EmbeddingConfigSection({
   // Load model configurations from database
   const loadModelConfigurations = async () => {
     try {
+      console.log("Loading embedding model configurations");
       // Load embedding config
       const { data: embeddingData, error: embeddingError } = await supabase
         .from('model_configurations')
         .select('*')
         .eq('type', 'embedding')
         .single();
+      
+      console.log("Embedding config data:", embeddingData);
+      console.log("Embedding config error:", embeddingError);
       
       if (!embeddingError && embeddingData) {
         const defaultModels = defaultEmbeddingModels[embeddingData.provider as keyof typeof defaultEmbeddingModels] || 
@@ -60,6 +64,7 @@ export function EmbeddingConfigSection({
           dimensions: embeddingData.dimensions || defaultModel.dimensions,
         };
         
+        console.log("Setting embedding config:", newConfig);
         setEmbeddingConfig(newConfig);
         
         // Load models for the saved provider
@@ -78,6 +83,7 @@ export function EmbeddingConfigSection({
   const loadEmbeddingModelsForProvider = async (provider: string) => {
     setLoadingEmbeddingModels(true);
     try {
+      console.log("Loading embedding models for provider:", provider);
       if (provider === "openai") {
         await fetchOpenAIEmbeddingModels();
       } else if (provider === "openrouter") {
@@ -100,6 +106,7 @@ export function EmbeddingConfigSection({
   };
 
   const fetchOpenAIEmbeddingModels = async () => {
+    console.log("Fetching OpenAI embedding models");
     // Get OpenAI API key from database
     const { data, error } = await supabase
       .from('api_keys')
@@ -108,10 +115,12 @@ export function EmbeddingConfigSection({
       .single();
 
     if (error) {
+      console.log("OpenAI API key error:", error);
       setEmbeddingModels(defaultEmbeddingModels.openai || []);
       return;
     }
     if (!data) {
+      console.log("No OpenAI API key found");
       setEmbeddingModels(defaultEmbeddingModels.openai || []);
       return;
     }
@@ -125,6 +134,7 @@ export function EmbeddingConfigSection({
     });
 
     if (!response.ok) {
+      console.log("OpenAI API response not ok");
       setEmbeddingModels(defaultEmbeddingModels.openai || []);
       return;
     }
@@ -148,19 +158,25 @@ export function EmbeddingConfigSection({
       .sort((a, b) => a.model.localeCompare(b.model));
     
     if (embeddingModels.length > 0) {
+      console.log("Setting OpenAI embedding models:", embeddingModels);
       setEmbeddingModels(embeddingModels);
     } else {
+      console.log("No embedding models found, using defaults");
       setEmbeddingModels(defaultEmbeddingModels.openai || []);
     }
   };
 
   // Load configurations on component mount
   useEffect(() => {
+    console.log("EmbeddingConfigSection mounted");
+    console.log("Available providers:", availableProviders);
+    console.log("Default embedding models:", defaultEmbeddingModels);
     loadModelConfigurations();
   }, []);
 
   // Update embedding models when provider changes
   const handleEmbeddingProviderChange = (provider: string) => {
+    console.log("Changing embedding provider to:", provider);
     const defaultModels = defaultEmbeddingModels[provider as keyof typeof defaultEmbeddingModels] || 
                          defaultEmbeddingModels.openai || [];
     const defaultModel = defaultModels[0] || { model: "text-embedding-3-large", dimensions: 3072 };
@@ -188,8 +204,12 @@ export function EmbeddingConfigSection({
     }
   };
 
+  console.log("Rendering EmbeddingConfigSection");
+  console.log("Embedding config:", embeddingConfig);
+  console.log("Embedding models:", embeddingModels);
+
   return (
-    <div className="space-y-6 pt-4">
+    <div className="space-y-6">
       <div className="space-y-4">
         <div className="space-y-2">
           <Label>Embedding Provider</Label>

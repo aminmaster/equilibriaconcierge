@@ -81,7 +81,7 @@ export function ModelConfigTab() {
       if (error) throw error;
       
       // Extract unique providers
-      const providers = [...new Set(data.map((key: any) => key.provider))];
+      const providers = [...new Set(data?.map((key: any) => key.provider) || [])];
       setAvailableProviders(providers);
       
       return providers;
@@ -148,24 +148,28 @@ export function ModelConfigTab() {
 
         {/* Generation Tab Content */}
         {activeTab === "generation" && (
-          <GenerationConfigSection 
-            availableProviders={availableProviders}
-            loadingProviders={loadingProviders}
-            defaultProviderModels={DEFAULT_PROVIDER_MODELS}
-          />
+          <div className="pt-4">
+            <GenerationConfigSection 
+              availableProviders={availableProviders}
+              loadingProviders={loadingProviders}
+              defaultProviderModels={DEFAULT_PROVIDER_MODELS}
+            />
+          </div>
         )}
 
         {/* Embedding Tab Content */}
         {activeTab === "embedding" && (
-          <EmbeddingConfigSection 
-            availableProviders={availableProviders}
-            loadingProviders={loadingProviders}
-            defaultEmbeddingModels={DEFAULT_EMBEDDING_MODELS}
-          />
+          <div className="pt-4">
+            <EmbeddingConfigSection 
+              availableProviders={availableProviders}
+              loadingProviders={loadingProviders}
+              defaultEmbeddingModels={DEFAULT_EMBEDDING_MODELS}
+            />
+          </div>
         )}
 
         {/* Action Buttons */}
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-2 pt-4">
           <Button variant="outline" onClick={handleReset} className="gap-2">
             <RotateCcw className="h-4 w-4" />
             Reset Defaults
