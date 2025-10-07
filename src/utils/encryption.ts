@@ -1,7 +1,7 @@
 "use client"; // Ensure client-side for Web Crypto
 
 // Secure encryption utilities using Web Crypto API
-async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
+export async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
   return await crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
@@ -16,7 +16,7 @@ async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey>
   );
 }
 
-async function encryptApiKey(apiKey: string, secretKey: string): Promise<string> {
+export async function encryptApiKey(apiKey: string, secretKey: string): Promise<string> {
   try {
     const encoder = new TextEncoder();
     const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -41,7 +41,7 @@ async function encryptApiKey(apiKey: string, secretKey: string): Promise<string>
   }
 }
 
-async function decryptApiKey(encryptedKey: string, secretKey: string): Promise<string> {
+export async function decryptApiKey(encryptedKey: string, secretKey: string): Promise<string> {
   try {
     const decoder = new TextDecoder();
     const combined = new Uint8Array(atob(encryptedKey).split('').map(c => c.charCodeAt(0)));
