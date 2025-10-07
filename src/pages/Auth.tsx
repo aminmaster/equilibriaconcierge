@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAnonymousSession } from "@/hooks/use-anonymous-session";
+import { validateEmail, validatePassword, validateName } from "@/utils/security";
 
 export default function Auth() {
   const [email, setEmail] = useState("");
@@ -44,6 +45,27 @@ export default function Auth() {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate email
+    if (!validateEmail(email)) {
+      toast({
+        title: "Invalid email",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Validate password
+    if (password.length < 6) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
@@ -66,6 +88,37 @@ export default function Auth() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate name
+    if (!validateName(name)) {
+      toast({
+        title: "Invalid name",
+        description: "Please enter a valid name (letters, spaces, hyphens, and apostrophes only).",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Validate email
+    if (!validateEmail(email)) {
+      toast({
+        title: "Invalid email",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Validate password
+    if (!validatePassword(password)) {
+      toast({
+        title: "Password too weak",
+        description: "Password must be at least 8 characters with uppercase, lowercase, and number.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
@@ -114,6 +167,16 @@ export default function Auth() {
       toast({
         title: "Email required",
         description: "Please enter your email address to reset your password.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Validate email
+    if (!validateEmail(email)) {
+      toast({
+        title: "Invalid email",
+        description: "Please enter a valid email address.",
         variant: "destructive",
       });
       return;
@@ -246,6 +309,9 @@ export default function Auth() {
                       className="pl-10"
                     />
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Must be at least 8 characters with uppercase, lowercase, and number
+                  </p>
                 </div>
                 <Button className="w-full" type="submit" disabled={isLoading}>
                   {isLoading ? "Creating account..." : "Create Account"}

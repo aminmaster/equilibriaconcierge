@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/use-auth";
 
 interface AdminAccessCheckProps {
   user: {
@@ -12,6 +13,8 @@ interface AdminAccessCheckProps {
 }
 
 export function AdminAccessCheck({ user }: AdminAccessCheckProps) {
+  const { signOut } = useAuth();
+  
   return (
     <div className="min-h-screen py-8 flex items-center justify-center">
       <Card className="max-w-md">

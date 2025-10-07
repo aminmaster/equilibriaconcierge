@@ -21,6 +21,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, name: string) => Promise<any>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<void>;
+  isAdmin: boolean;
 }
 
 // Create context with initial value
@@ -31,6 +32,7 @@ const AuthContext = createContext<AuthContextType>({
   signUp: async () => {},
   signOut: async () => {},
   updateProfile: async () => {},
+  isAdmin: false,
 });
 
 export const useAuth = () => {
@@ -40,6 +42,7 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -58,22 +61,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             .single();
           
           if (!error && mounted) {
-            setUser({
+            const userData = {
               id: session.user.id,
               email: session.user.email || '',
               name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'User',
               role: profile.role || 'user',
               first_name: profile.first_name || '',
               last_name: profile.last_name || ''
-            });
+            };
+            
+            setUser(userData);
+            setIsAdmin(profile.role === 'admin');
           } else if (mounted) {
             // If profile doesn't exist, create a minimal user object
-            setUser({
+            const userData = {
               id: session.user.id,
               email: session.user.email || '',
               name: session.user.email?.split('@')[0] || 'User',
               role: 'user'
-            });
+            };
+            
+            setUser(userData);
+            setIsAdmin(false);
           }
         }
       } catch (error) {
@@ -102,27 +111,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             if (!mounted) return;
             
             if (!error) {
-              setUser({
+              const userData = {
                 id: session.user.id,
                 email: session.user.email || '',
                 name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'User',
                 role: profile.role || 'user',
                 first_name: profile.first_name || '',
                 last_name: profile.last_name || ''
-              });
+              };
+              
+              setUser(userData);
+              setIsAdmin(profile.role === 'admin');
             } else {
               // If profile doesn't exist, create a minimal user object
-              setUser({
+              const userData = {
                 id: session.user.id,
                 email: session.user.email || '',
                 name: session.user.email?.split('@')[0] || 'User',
                 role: 'user'
-              });
+              };
+              
+              setUser(userData);
+              setIsAdmin(false);
             }
             setLoading(false);
           });
       } else {
         setUser(null);
+        setIsAdmin(false);
         setLoading(false);
       }
     });
@@ -156,14 +172,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           .single();
         
         if (!error) {
-          setUser({
+          const userData = {
             id: result.data.session.user.id,
             email: result.data.session.user.email || '',
             name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'User',
             role: profile.role || 'user',
             first_name: profile.first_name || '',
             last_name: profile.last_name || ''
-          });
+          };
+          
+          setUser(userData);
+          setIsAdmin(profile.role === 'admin');
         }
       }
       
@@ -208,14 +227,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
       
       if (result.data?.user) {
-        setUser({
+        const userData = {
           id: result.data.user.id,
           email: result.data.user.email || '',
           name: name,
           role: 'user',
           first_name: firstName,
           last_name: lastName
-        });
+        };
+        
+        setUser(userData);
+        setIsAdmin(false);
       }
       
       return result;
@@ -234,6 +256,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       setUser(null);
+      setIsAdmin(false);
       toast({
         title: "Signed out",
         description: "You have been successfully signed out.",
@@ -247,6 +270,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
       // Even if there's an error, clear the user state
       setUser(null);
+      setIsAdmin(false);
     }
   };
 
@@ -265,11 +289,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       if (error) throw error;
       
-      setUser({
+      const updatedUser = {
         ...user,
         ...updates,
         name: `${updates.first_name || user.first_name || ''} ${updates.last_name || user.last_name || ''}`.trim() || user.name
-      });
+      };
+      
+      setUser(updatedUser);
+      
+      // Update admin status if role changed
+      if (updates.role) {
+        setIsAdmin(updates.role === 'admin');
+      }
       
       toast({
         title: "Profile updated",
@@ -286,7 +317,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, updateProfile }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, updateProfile, isAdmin }}>
       {children}
     </AuthContext.Provider>
   );

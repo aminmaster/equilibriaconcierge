@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { validatePassword } from "@/utils/security";
 
 export default function UpdatePassword() {
   const [password, setPassword] = useState("");
@@ -25,6 +26,7 @@ export default function UpdatePassword() {
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validate passwords
     if (password !== confirmPassword) {
       toast({
         title: "Passwords don't match",
@@ -34,10 +36,10 @@ export default function UpdatePassword() {
       return;
     }
     
-    if (password.length < 6) {
+    if (!validatePassword(password)) {
       toast({
-        title: "Password too short",
-        description: "Password must be at least 6 characters long.",
+        title: "Password too weak",
+        description: "Password must be at least 8 characters with uppercase, lowercase, and number.",
         variant: "destructive",
       });
       return;
@@ -91,6 +93,9 @@ export default function UpdatePassword() {
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                 required
               />
+              <p className="text-xs text-muted-foreground">
+                Must be at least 8 characters with uppercase, lowercase, and number
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirm-password">Confirm New Password</Label>

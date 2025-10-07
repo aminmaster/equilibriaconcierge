@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/use-auth.tsx"; // Updated import
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -22,27 +22,14 @@ import {
 import { KnowledgeBaseTab } from "@/components/admin/KnowledgeBaseTab";
 import { ApiKeysTab } from "@/components/admin/ApiKeysTab";
 import { ModelConfigTab } from "@/components/admin/ModelConfigTab";
-import { AdminAccessCheck } from "@/components/admin/AdminAccessCheck";
 import { TestApiKey } from "@/components/admin/TestApiKey";
 import { useNavigate } from "react-router-dom";
 
 export default function Admin() {
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { user, loading: authLoading, signOut, isAdmin } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("knowledge");
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  // Check if user is admin
-  useEffect(() => {
-    const checkAdmin = async () => {
-      if (user?.role === 'admin') {
-        setIsAdmin(true);
-      }
-    };
-    
-    checkAdmin();
-  }, [user]);
 
   const handleSignOut = async () => {
     try {
@@ -72,7 +59,37 @@ export default function Admin() {
 
   // If not admin, show access denied message
   if (!isAdmin && user) {
-    return <AdminAccessCheck user={user} />;
+    return (
+      <div className="min-h-screen py-8 flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle>Access Denied</CardTitle>
+            <CardDescription>
+              You don't have permission to access the admin dashboard.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="p-4 bg-muted rounded-lg">
+                <p className="text-sm text-muted-foreground">Current User:</p>
+                <p className="font-medium">{user.name || user.email}</p>
+                <p className="text-sm text-muted-foreground">Role: {user.role}</p>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Only users with the admin role can access this page. 
+                Contact your system administrator if you believe this is an error.
+              </p>
+              <Button 
+                className="w-full"
+                onClick={() => navigate('/')}
+              >
+                Return to Home
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   // If not logged in, show login prompt
