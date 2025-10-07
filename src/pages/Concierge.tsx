@@ -7,14 +7,17 @@ import { ConversationCanvas } from "@/components/conversation-canvas";
 import { useAuth } from "@/hooks/use-auth.tsx";
 import { useAnonymousSession } from "@/hooks/use-anonymous-session";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { VoiceInput } from "@/components/voice-input";
 
 export default function Concierge() {
   const location = useLocation();
   const { user } = useAuth();
   const { sessionId, isAnonymous } = useAnonymousSession();
   const [inputMode, setInputMode] = useState<"text" | "voice">("text");
+  const [isListening, setIsListening] = useState(false);
   const isMobile = useMediaQuery("(max-width: 768px)");
   const [defaultLayout, setDefaultLayout] = useState<number[]>([70, 30]);
+  const [message, setMessage] = useState(""); // Expose for voice input
 
   // Parse URL parameters to set initial input mode
   useEffect(() => {
@@ -45,6 +48,11 @@ export default function Concierge() {
     }
   }, [isMobile]);
 
+  // Handle voice transcription
+  const handleTranscript = (transcript: string) => {
+    setMessage(prev => prev + ' ' + transcript); // Append to existing message
+  };
+
   return (
     <div className="h-screen flex flex-col">
       {isMobile ? (
@@ -57,6 +65,10 @@ export default function Concierge() {
             <ConciergeInterface 
               inputMode={inputMode}
               setInputMode={setInputMode}
+              isListening={isListening}
+              setIsListening={setIsListening}
+              message={message}
+              setMessage={setMessage}
             />
           </div>
           <div className="shrink-0 border-t">
@@ -75,6 +87,10 @@ export default function Concierge() {
                 <ConciergeInterface 
                   inputMode={inputMode}
                   setInputMode={setInputMode}
+                  isListening={isListening}
+                  setIsListening={setIsListening}
+                  message={message}
+                  setMessage={setMessage}
                 />
               </div>
             </div>

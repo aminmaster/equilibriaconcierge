@@ -17,20 +17,30 @@ import { SoundSettingsPanel } from "@/components/sound-settings-panel";
 import { useChat } from "@/hooks/use-chat";
 import { useConversations } from "@/hooks/use-conversations";
 import { useNavigate } from "react-router-dom";
+import { VoiceInput } from "@/components/voice-input";
 
 interface ConciergeInterfaceProps {
   inputMode: "text" | "voice";
   setInputMode: (mode: "text" | "voice") => void;
+  isListening: boolean;
+  setIsListening: (listening: boolean) => void;
+  message: string;
+  setMessage: (message: string) => void;
 }
 
-export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfaceProps) {
-  const [message, setMessage] = useState("");
-  const [isListening, setIsListening] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+export function ConciergeInterface({ 
+  inputMode, 
+  setInputMode, 
+  isListening, 
+  setIsListening,
+  message, 
+  setMessage 
+}: ConciergeInterfaceProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { streamMessage, cancelStream, isLoading, error, configLoading } = useChat();
   const { currentConversation } = useConversations();
   const navigate = useNavigate();
+  const [showSettings, setShowSettings] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,10 +55,6 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
     } catch (err) {
       console.error("Error sending message:", err);
     }
-  };
-
-  const toggleListening = () => {
-    setIsListening(!isListening);
   };
 
   // Auto-resize textarea
@@ -68,6 +74,11 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
 
   // Check if error is related to missing model configurations
   const isModelConfigError = error?.includes("model configurations") || error?.includes("configure models");
+
+  // Handle voice transcription
+  const handleTranscript = (transcript: string) => {
+    setMessage(prev => prev + ' ' + transcript.trim());
+  };
 
   return (
     <div className="bg-background/80 backdrop-blur-sm border-t">
@@ -157,16 +168,12 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
               </div>
               
               <div className="flex gap-1">
-                <Button
-                  size="icon"
-                  variant={isListening ? "destructive" : "default"}
-                  onClick={toggleListening}
-                  className="h-10 w-10"
-                  aria-label={isListening ? "Stop listening" : "Start listening"}
+                <VoiceInput
+                  onTranscript={handleTranscript}
+                  isListening={isListening}
+                  setIsListening={setIsListening}
                   disabled={isLoading || configLoading}
-                >
-                  <Mic className="h-4 w-4" />
-                </Button>
+                />
                 
                 <Button
                   size="icon"

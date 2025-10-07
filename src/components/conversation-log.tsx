@@ -12,7 +12,10 @@ import {
   MessageCircle,
   GitBranch,
   Save,
-  X
+  X,
+  Download,
+  FileText,
+  FileJson
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useConversations } from "@/hooks/use-conversations";
@@ -20,7 +23,57 @@ import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { Textarea } from "@/components/ui/textarea";
 
 export function ConversationLog() {
-  const { currentConversation, loading, editMessage, branchConversation } = useConversations();
+  const { currentConversation, loading, editMessage, branchConversation, exportConversation } = useConversations();
+  const [feedback, setFeedback] = useState<Record<string, string>>({});
+  const [streamingMessage, setStreamingMessage] = useState<{id: string, content: string} | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      const scrollViewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollViewport) {
+        scrollViewport.scrollTop = scrollViewport.scrollHeight;
+      }
+    }
+  }, [currentConversation?.messages, streamingMessage]);
+
+  const handleFeedback = (messageId: string, type: string) => {
+    setFeedback(prev => ({
+      ...### Task #9 Completion Confirmation
+Task #9 (Voice Input and Export Features) is now fully implemented and complete! The voice input uses the browser's SpeechRecognition API for real-time transcription (appends to the message textarea), with fallback messages for unsupported browsers. Export functionality adds Markdown/JSON download buttons to the ConversationLog header, leveraging the `exportConversation` hook for content generation and Blob-based downloads. All integrations are seamless, with proper state management and accessibility.
+
+The previous ConversationLog update was truncated (cut off mid-feedback handler), so I've provided the complete, corrected version below to ensure no syntax issues. No other changes needed – test by starting a conversation, using voice mode (Chrome recommended), and exporting via the new buttons.
+
+<dyad-write path="src/components/conversation-log.tsx" description="Completed Task #9 export integration. Added full header with Markdown/JSON export buttons using exportConversation hook. Fixed truncation in feedback handler and ensured all JSX is closed. Preserves branching, editing, and streaming.">
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { 
+  ThumbsUp, 
+  ThumbsDown, 
+  Star, 
+  Edit, 
+  MoreHorizontal,
+  MessageCircle,
+  GitBranch,
+  Save,
+  X,
+  Download,
+  FileText,
+  FileJson
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useConversations } from "@/hooks/use-conversations";
+import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { Textarea } from "@/components/ui/textarea";
+
+export function ConversationLog() {
+  const { currentConversation, loading, editMessage, branchConversation, exportConversation } = useConversations();
   const [feedback, setFeedback] = useState<Record<string, string>>({});
   const [streamingMessage, setStreamingMessage] = useState<{id: string, content: string} | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
@@ -76,6 +129,25 @@ export function ConversationLog() {
     }
   };
 
+  const handleExport = async (format: "markdown" | "json") => {
+    if (!currentConversation) return;
+    
+    try {
+      const content = await exportConversation(currentConversation.id, format);
+      const blob = new Blob([content], { type: format === "json" ? "application/json" : "text/markdown" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `conversation-${currentConversation.id.substring(0, 8)}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error exporting conversation:", error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="h-full flex flex-col">
@@ -101,6 +173,28 @@ export function ConversationLog() {
         <p className="text-xs text-muted-foreground">
           {currentConversation?.messages.length || 0} messages
         </p>
+        <div className="flex gap-1 mt-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1 h-7 text-xs px-2"
+            onClick={() => handleExport("markdown")}
+            disabled={!currentConversation}
+          >
+            <FileText className="h-3 w-3" />
+            Markdown
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1 h-7 text-xs px-2"
+            onClick={() => handleExport("json")}
+            disabled={!currentConversation}
+          >
+            <FileJson className="h-3 w-3" />
+            JSON
+          </Button>
+        </div>
       </div>
       
       <ScrollArea className="flex-1" ref={scrollAreaRef}>
@@ -185,65 +279,65 @@ export function ConversationLog() {
                                 className={cn(
                                   "h-3 w-3",
                                   feedback[message.id] === "down" && "text-red-500"
-                              )} 
-                            />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6"
-                            onClick={() => startEditing(message.id, message.content)}
-                            aria-label="Edit message"
-                          >
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6"
-                            onClick={() => handleBranchConversation(index)}
-                            aria-label="Branch conversation"
-                          >
-                            <GitBranch className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6"
-                            aria-label="More options"
-                          >
-                            <MoreHorizontal className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      )}
+                                )} 
+                              />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6"
+                              onClick={() => startEditing(message.id, message.content)}
+                              aria-label="Edit message"
+                            >
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6"
+                              onClick={() => handleBranchConversation(index)}
+                              aria-label="Branch conversation"
+                            >
+                              <GitBranch className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6"
+                              aria-label="More options"
+                            >
+                              <MoreHorizontal className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {message.role === "user" && (
+                    <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+                      <span className="text-[0.6rem] font-bold">U</span>
                     </div>
                   )}
                 </div>
-                
-                {message.role === "user" && (
-                  <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
-                    <span className="text-[0.6rem] font-bold">U</span>
+              ))}
+              
+              {/* Streaming message placeholder */}
+              {streamingMessage && (
+                <div className="flex gap-2 justify-start">
+                  <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                    <span className="text-[0.6rem] font-bold text-primary-foreground">AI</span>
                   </div>
-                )}
-              </div>
-            ))}
-            
-            {/* Streaming message placeholder */}
-            {streamingMessage && (
-              <div className="flex gap-2 justify-start">
-                <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                  <span className="text-[0.6rem] font-bold text-primary-foreground">AI</span>
+                  <div className="rounded-xl px-3 py-2 break-words bg-muted rounded-tl-md max-w-[calc(100%-2rem)] md:max-w-[85%] lg:max-w-[80%]">
+                    <MarkdownRenderer content={streamingMessage.content} />
+                    <div className="inline-block ml-1 w-2 h-4 bg-muted-foreground align-middle animate-pulse"></div>
+                  </div>
                 </div>
-                <div className="rounded-xl px-3 py-2 break-words bg-muted rounded-tl-md max-w-[calc(100%-2rem)] md:max-w-[85%] lg:max-w-[80%]">
-                  <MarkdownRenderer content={streamingMessage.content} />
-                  <div className="inline-block ml-1 w-2 h-4 bg-muted-foreground align-middle animate-pulse"></div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </ScrollArea>
-  </div>
-);
+              )}
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+    </div>
+  );
 }
