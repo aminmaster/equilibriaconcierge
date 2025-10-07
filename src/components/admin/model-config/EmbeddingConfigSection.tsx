@@ -30,7 +30,6 @@ export function EmbeddingConfigSection({
   const [embeddingConfig, setEmbeddingConfig] = useState({
     provider: "openai",
     model: "text-embedding-3-large",
-    dimensions: 3072,
   });
   
   const [embeddingModels, setEmbeddingModels] = useState<Array<{model: string, dimensions: number}>>(
@@ -61,7 +60,6 @@ export function EmbeddingConfigSection({
         const newConfig = {
           provider: embeddingData.provider || "openai",
           model: embeddingData.model || defaultModel.model,
-          dimensions: embeddingData.dimensions || defaultModel.dimensions,
         };
         
         console.log("Setting embedding config:", newConfig);
@@ -168,13 +166,13 @@ export function EmbeddingConfigSection({
       console.log("Setting OpenAI embedding models:", embeddingModels);
       setEmbeddingModels(embeddingModels);
       
-      // Update the current config with the first model's dimensions if it matches
+      // Update the current config with the first model if it matches
       const firstModel = embeddingModels[0];
       if (embeddingConfig.model === firstModel.model || 
           (embeddingConfig.model === "text-embedding-3-large" && firstModel.model.includes("text-embedding-3-large"))) {
         setEmbeddingConfig(prev => ({
           ...prev,
-          dimensions: firstModel.dimensions
+          model: firstModel.model
         }));
       }
     } else {
@@ -201,24 +199,25 @@ export function EmbeddingConfigSection({
     setEmbeddingConfig(prev => ({
       ...prev,
       provider: provider,
-      model: defaultModel.model,
-      dimensions: defaultModel.dimensions
+      model: defaultModel.model
     }));
     
     // Load models for the new provider
     loadEmbeddingModelsForProvider(provider);
   };
 
-  // Update embedding model and dimensions
+  // Update embedding model
   const handleEmbeddingModelChange = (model: string) => {
-    const selectedModel = embeddingModels.find(m => m.model === model);
-    if (selectedModel) {
-      setEmbeddingConfig(prev => ({
-        ...prev,
-        model: selectedModel.model,
-        dimensions: selectedModel.dimensions
-      }));
-    }
+    setEmbeddingConfig(prev => ({
+      ...prev,
+      model: model
+    }));
+  };
+
+  // Get dimensions for the currently selected model
+  const getCurrentModelDimensions = () => {
+    const selectedModel = embeddingModels.find(m => m.model === embeddingConfig.model);
+    return selectedModel ? selectedModel.dimensions : 1536; // Default fallback
   };
 
   console.log("Rendering EmbeddingConfigSection");
@@ -310,8 +309,7 @@ export function EmbeddingConfigSection({
             <Label>Dimensions</Label>
             <Input
               type="number"
-              value={embeddingConfig.dimensions || ""}
-              onChange={(e) => setEmbeddingConfig({...embeddingConfig, dimensions: parseInt(e.target.value) || 0})}
+              value={getCurrentModelDimensions()}
               disabled
             />
             <p className="text-sm text-muted-foreground">
