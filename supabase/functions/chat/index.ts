@@ -397,6 +397,42 @@ serve(async (req) => {
           stream: true
         })
       })
+    } else if (generationProvider === 'cohere') {
+      // Native Cohere support: uses 'message' for the last message, different body format
+      const cohereMessage = allMessages[allMessages.length - 1].content;  // Last message (user input)
+      apiResponse = await fetch('https://api.cohere.ai/v1/chat', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${decryptedGenerationKey}`,  // Cohere uses Bearer
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: generationModel,  // Dynamic model from config
+          message: cohereMessage,  // Cohere uses 'message' (last input) instead of full history
+          conversation_id: conversationId,  // For context if supported
+          stream: true
+        })
+      })
+    } else if (generationProvider === 'google') {
+      // Native Google Gemini support: uses 'contents' array, different body format
+      apiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${generationModel}:generateContent`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${decryptedGenerationKey}`,  // Google uses Bearer
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contents: [{
+            role: 'user',
+            parts: [{ text: allMessages[allMessages.length - 1].content }]  // Last message for simplicity
+          }],
+          generationConfig: {
+            maxOutputTokens: 1024,  // Fixed; can be dynamic
+            temperature: 0.7  // From config if needed
+          },
+          stream: true
+        })
+      })
     } else {
       // Default to OpenRouter for other providers
       apiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
