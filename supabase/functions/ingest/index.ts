@@ -63,7 +63,7 @@ function isRateLimited(identifier: string, maxRequests: number = 5, windowMs: nu
 
 // TODO: Migrate to Redis for distributed rate limiting in production scaling
 
-// Fetch and extract content from URL
+// Fetch and extract content from URL with improved parsing
 async function fetchUrlContent(url: string): Promise<string> {
   try {
     const response = await fetch(url);
@@ -77,20 +77,39 @@ async function fetchUrlContent(url: string): Promise<string> {
       // Parse HTML and extract text content
       const html = await response.text();
       const doc = new DOMParser().parseFromString(html, 'text/html');
-      // Extract main content, removing scripts/styles
-      const mainContent = doc.querySelector('main') || doc.querySelector('article') || doc.body;
+      
+      // Enhanced extraction: prioritize main content areas
+      let mainContent = doc.querySelector('main') || 
+                       doc.querySelector('article') || 
+                       doc.querySelector('[role="main"]') || 
+                       doc.body;
+      
       if (mainContent) {
-        // Remove unwanted elements
-        mainContent.querySelectorAll('script, style, nav, footer, header').forEach(el => el.remove());
-        return mainContent.textContent?.trim() || '';
+        // Remove unwanted elements more thoroughly
+        mainContent.querySelectorAll('script, style, nav, footer, header, aside, [class*="ad-"], [id*="ad-"]').forEach(el => el.remove());
+        
+        // Extract text with better whitespace handling
+        const textContent = mainContent.textContent || '';
+        return textContent
+          .replace(/\s+/g, ' ') // Normalize whitespace
+          .trim();
       }
-      return html; // Fallback to raw HTML text
+      
+      // Fallback: extract all body text
+      return doc.body?.textContent?.replace(/\s+/g, ' ').trim() || html;
     } else if (contentType.includes('application/pdf')) {
-      // For PDFs, we'd need a PDF parser; fallback to error for now
-      throw new Error('PDF processing not supported in this implementation. Use file upload for PDFs.');
+      // Basic PDF text extraction (limited in Deno; in production, use pdf.js or similar)
+      const arrayBuffer = await response.arrayBuffer();
+      // Placeholder: For real PDF support, integrate a PDF parser like pdf-parse
+      // For now, return a message indicating PDF processing
+      throw new Error('PDF processing requires additional libraries. Use file upload for PDFs or convert to text/HTML.');
+    } else if (contentType.includes('text/plain') || contentType.includes('application/json')) {
+      // For plain text or JSON, return raw content
+      const text = await response.text();
+      return text.replace(/\s+/g, ' ').trim();
     } else {
-      // For other text types, return raw content
-      return await response.text();
+      // Unsupported type
+      throw new Error(`Unsupported content type: ${contentType}. Please use text/HTML or upload files.`);
     }
   } catch (error) {
     console.error('Error fetching URL content:', error);
@@ -98,10 +117,14 @@ async function fetchUrlContent(url: string): Promise<string> {
   }
 }
 
-// Semantic chunking with overlap
+// Enhanced semantic chunking with better overlap and edge case handling
 function splitIntoSemanticChunks(text: string, maxChunkSize: number = 1000, overlap: number = 200): string[] {
+  if (!text || text.trim().length === 0) {
+    return [];
+  }
+
   const chunks: string[] = [];
-  const sentences = text.split(/(?<=[.!?])\s+/); // Split on sentence boundaries
+  const sentences = text.split(/(?<=[.!?])\s+/); // Split on sentence boundaries, preserving punctuation
 
   let currentChunk = '';
   let i = 0;
@@ -118,11 +141,19 @@ function splitIntoSemanticChunks(text: string, maxChunkSize: number = 1000, over
         continue;
       }
       
-      // Otherwise, save current chunk and start new one
+      // Otherwise, save current chunk and start new one with overlap
       if (currentChunk.length > 0) {
         chunks.push(currentChunk.trim());
       }
-      currentChunk = sentences[i]; // Start new chunk with current sentence
+      
+      // Start new chunk with overlap from previous (if available)
+      if (chunks.length > 0) {
+        const prevChunk = chunks[chunks.length - 1];
+        const overlapText = prevChunk.slice(-overlap);
+        currentChunk = overlapText + ' ' + sentences[i];
+      } else {
+        currentChunk = sentences[i];
+      }
     } else {
       currentChunk = nextChunk;
       i++;
@@ -134,21 +165,33 @@ function splitIntoSemanticChunks(text: string, maxChunkSize: number = 1000, over
     chunks.push(currentChunk.trim());
   }
 
-  // Apply overlap if chunks > 1
+  // Ensure minimum chunk size (merge small chunks if needed)
   if (chunks.length > 1) {
-    const overlappedChunks = [chunks[0]]; // First chunk unchanged
-    for (let j = 1; j < chunks.length; j++) {
-      const overlapText = chunks[j - 1].slice(-overlap);
-      const newChunk = overlapText + ' ' + chunks[j];
-      overlappedChunks.push(newChunk);
+    const mergedChunks: string[] = [];
+    let tempChunk = '';
+    
+    for (const chunk of chunks) {
+      if (tempChunk.length + chunk.length + 1 <= maxChunkSize && tempChunk.length > 0) {
+        tempChunk += ' ' + chunk;
+      } else {
+        if (tempChunk.length > 0) {
+          mergedChunks.push(tempChunk.trim());
+        }
+        tempChunk = chunk;
+      }
     }
-    return overlappedChunks;
+    
+    if (tempChunk.length > 0) {
+      mergedChunks.push(tempChunk.trim());
+    }
+    
+    return mergedChunks;
   }
 
   return chunks;
 }
 
-// Batch embedding generation
+// Optimized batch embedding generation with progress and error handling
 async function generateBatchEmbeddings(
   supabaseClient: any, 
   chunks: string[], 
@@ -159,71 +202,88 @@ async function generateBatchEmbeddings(
 ): Promise<number[][]> {
   const BATCH_SIZE = 5; // Process in batches to avoid rate limits
   const embeddings: number[][] = [];
+  const totalBatches = Math.ceil(chunks.length / BATCH_SIZE);
 
   for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
     const batch = chunks.slice(i, i + BATCH_SIZE);
-    
     let response;
-    if (provider === 'openai' || provider === 'openrouter') {
-      response = await fetch(provider === 'openai' ? 'https://api.openai.com/v1/embeddings' : 'https://openrouter.ai/api/v1/embeddings', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          ...(provider === 'openrouter' && {
-            'HTTP-Referer': Deno.env.get('SUPABASE_URL') || 'https://your-app.com',
-            'X-Title': 'Conversational AI Platform'
-          })
-        },
-        body: JSON.stringify({
-          input: batch,
-          model: model
-        })
-      });
-    } else if (provider === 'cohere') {
-      // Cohere expects 'texts' array
-      response = await fetch('https://api.cohere.ai/v1/embed', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          texts: batch,
-          model: model,
-          input_type: 'search_document'
-        })
-      });
-    } else {
-      throw new Error(`Unsupported embedding provider: ${provider}`);
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Embedding API error: ${response.status} - ${errorText}`);
-    }
-
-    const data = await response.json();
-    let batchEmbeddings;
-
-    if (provider === 'cohere') {
-      batchEmbeddings = data.embeddings; // Array of arrays
-    } else {
-      batchEmbeddings = data.data.map((item: any) => item.embedding); // OpenAI/OpenRouter format
-    }
-
-    embeddings.push(...batchEmbeddings);
     
-    // Progress update (every batch)
-    const progress = Math.round(((i + BATCH_SIZE) / chunks.length) * 100);
-    await supabaseClient
-      .from('knowledge_sources')
-      .update({ 
-        status: 'processing', 
-        updated_at: new Date().toISOString(),
-        metadata: { progress } // Store progress in metadata if needed
-      })
-      .eq('id', sourceId);
+    try {
+      if (provider === 'openai' || provider === 'openrouter') {
+        response = await fetch(provider === 'openai' ? 'https://api.openai.com/v1/embeddings' : 'https://openrouter.ai/api/v1/embeddings', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            ...(provider === 'openrouter' && {
+              'HTTP-Referer': Deno.env.get('SUPABASE_URL') || 'https://your-app.com',
+              'X-Title': 'Conversational AI Platform'
+            })
+          },
+          body: JSON.stringify({
+            input: batch,
+            model: model
+          })
+        });
+      } else if (provider === 'cohere') {
+        // Cohere expects 'texts' array
+        response = await fetch('https://api.cohere.ai/v1/embed', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            texts: batch,
+            model: model,
+            input_type: 'search_document'
+          })
+        });
+      } else {
+        throw new Error(`Unsupported embedding provider: ${provider}`);
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Embedding API error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      let batchEmbeddings;
+
+      if (provider === 'cohere') {
+        batchEmbeddings = data.embeddings; // Array of arrays
+      } else {
+        batchEmbeddings = data.data.map((item: any) => item.embedding); // OpenAI/OpenRouter format
+      }
+
+      embeddings.push(...batchEmbeddings);
+      
+      // Progress update (every batch)
+      const progress = Math.round(((i + BATCH_SIZE) / chunks.length) * 100);
+      await supabaseClient
+        .from('knowledge_sources')
+        .update({ 
+          status: 'processing', 
+          updated_at: new Date().toISOString(),
+          metadata: { progress } // Store progress in metadata if needed
+        })
+        .eq('id', sourceId);
+      
+      console.log(`Processed batch ${Math.floor(i / BATCH_SIZE) + 1}/${totalBatches}, progress: ${progress}%`);
+      
+    } catch (batchError) {
+      console.error(`Error processing batch ${Math.floor(i / BATCH_SIZE) + 1}:`, batchError);
+      // Retry logic: simple exponential backoff for transient errors
+      if (batchError.message.includes('rate limit') || batchError.message.includes('timeout')) {
+        const delay = Math.pow(2, Math.floor(i / BATCH_SIZE)); // Exponential backoff
+        await new Promise(resolve => setTimeout(resolve, delay * 1000));
+        i -= BATCH_SIZE; // Retry this batch
+        continue;
+      } else {
+        throw batchError; // Re-throw non-recoverable errors
+      }
+    }
   }
 
   return embeddings;
@@ -456,4 +516,4 @@ serve(async (req) => {
       status: 400,
     });
   }
-});
+})
