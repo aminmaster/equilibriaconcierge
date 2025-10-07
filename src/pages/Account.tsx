@@ -330,7 +330,7 @@ export default function Account() {
                         <Input
                           id="first-name"
                           value={profile.first_name}
-                          onChange={(e) => setProfile({...profile, first_name: e.target.value})}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProfile({...profile, first_name: e.target.value})}
                         />
                       </div>
                       
@@ -339,7 +339,7 @@ export default function Account() {
                         <Input
                           id="last-name"
                           value={profile.last_name}
-                          onChange={(e) => setProfile({...profile, last_name: e.target.value})}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProfile({...profile, last_name: e.target.value})}
                         />
                       </div>
                     </div>
@@ -350,7 +350,7 @@ export default function Account() {
                         id="email"
                         type="email"
                         value={profile.email}
-                        onChange={(e) => setProfile({...profile, email: e.target.value})}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProfile({...profile, email: e.target.value})}
                         disabled
                       />
                     </div>
@@ -361,7 +361,7 @@ export default function Account() {
                         id="bio"
                         placeholder="Tell us about yourself"
                         value={profile.bio}
-                        onChange={(e) => setProfile({...profile, bio: e.target.value})}
+                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setProfile({...profile, bio: e.target.value})}
                         className="min-h-[120px]"
                       />
                     </div>
@@ -392,7 +392,7 @@ export default function Account() {
                     </div>
                     <Switch
                       checked={preferences.notifications}
-                      onCheckedChange={(checked) => 
+                      onCheckedChange={(checked: boolean) => 
                         setPreferences({...preferences, notifications: checked})
                       }
                     />
@@ -407,7 +407,7 @@ export default function Account() {
                     </div>
                     <Switch
                       checked={preferences.newsletter}
-                      onCheckedChange={(checked) => 
+                      onCheckedChange={(checked: boolean) => 
                         setPreferences({...preferences, newsletter: checked})
                       }
                     />
@@ -417,7 +417,7 @@ export default function Account() {
                     <Label>Language</Label>
                     <Select 
                       value={preferences.language}
-                      onValueChange={(value) => 
+                      onValueChange={(value: string) => 
                         setPreferences({...preferences, language: value})
                       }
                     >
@@ -453,7 +453,7 @@ export default function Account() {
                     <Label>Theme</Label>
                     <Select 
                       value={appearance.theme}
-                      onValueChange={(value) => 
+                      onValueChange={(value: string) => 
                         setAppearance({...appearance, theme: value})
                       }
                     >
@@ -472,7 +472,7 @@ export default function Account() {
                     <Label>Font Size</Label>
                     <Select 
                       value={appearance.fontSize}
-                      onValueChange={(value) => 
+                      onValueChange={(value: string) => 
                         setAppearance({...appearance, fontSize: value})
                       }
                     >
@@ -510,7 +510,7 @@ export default function Account() {
                         id="current-password"
                         type="password"
                         value={security.currentPassword}
-                        onChange={(e) => 
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
                           setSecurity({...security, currentPassword: e.target.value})
                         }
                       />
@@ -522,7 +522,7 @@ export default function Account() {
                         id="new-password"
                         type="password"
                         value={security.newPassword}
-                        onChange={(e) => 
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
                           setSecurity({...security, newPassword: e.target.value})
                         }
                       />
@@ -534,7 +534,7 @@ export default function Account() {
                         id="confirm-password"
                         type="password"
                         value={security.confirmPassword}
-                        onChange={(e) => 
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
                           setSecurity({...security, confirmPassword: e.target.value})
                         }
                       />

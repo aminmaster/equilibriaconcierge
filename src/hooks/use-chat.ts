@@ -57,7 +57,7 @@ export const useChat = () => {
       
       console.log("Loaded model configuration:", config);
       return config;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading model configuration:", error);
       throw error;
     }
@@ -209,7 +209,7 @@ export const useChat = () => {
         toast({
           title: "Model Configuration Required",
           description: "Please configure AI models in the admin panel before using the chat.",
-          variant: "destructive"
+          variant: "destructive" as const
         });
       }
     } finally {

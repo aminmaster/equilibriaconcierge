@@ -57,9 +57,9 @@ export const useConversations = () => {
         const { data, error } = await query;
         
         if (!error && data) {
-          const sortedConversations = data.map(conv => ({
+          const sortedConversations = data.map((conv: any) => ({
             ...conv,
-            messages: conv.messages ? conv.messages.sort((a, b) => 
+            messages: conv.messages ? conv.messages.sort((a: any, b: any) => 
               new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
             ) : []
           }));

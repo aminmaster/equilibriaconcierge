@@ -35,7 +35,7 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
     if (!message.trim() || isLoading) return;
     
     try {
-      await streamMessage(message, (chunk) => {
+      await streamMessage(message, (chunk: string) => {
         // This callback handles streaming chunks
         console.log("Received chunk:", chunk);
       });
@@ -76,11 +76,11 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
               <Textarea
                 ref={textareaRef}
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setMessage(e.target.value)}
                 placeholder="Ask me anything..."
                 className="min-h-10 h-10 flex-1 resize-none shadow-sm py-2 text-sm"
                 disabled={isLoading}
-                onKeyDown={(e) => {
+                onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
                     handleSubmit(e);
