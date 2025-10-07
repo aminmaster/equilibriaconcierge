@@ -310,8 +310,8 @@ export function EmbeddingConfigSection({
             <Label>Dimensions</Label>
             <Input
               type="number"
-              value={embeddingConfig.dimensions}
-              onChange={(e) => setEmbeddingConfig({...embeddingConfig, dimensions: parseInt(e.target.value) || 1536})}
+              value={embeddingConfig.dimensions || ""}
+              onChange={(e) => setEmbeddingConfig({...embeddingConfig, dimensions: parseInt(e.target.value) || 0})}
               disabled
             />
             <p className="text-sm text-muted-foreground">
