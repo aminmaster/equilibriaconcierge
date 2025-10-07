@@ -42,56 +42,6 @@ export function ConversationLog() {
 
   const handleFeedback = (messageId: string, type: string) => {
     setFeedback(prev => ({
-      ...### Task #9 Completion Confirmation
-Task #9 (Voice Input and Export Features) is now fully implemented and complete! The voice input uses the browser's SpeechRecognition API for real-time transcription (appends to the message textarea), with fallback messages for unsupported browsers. Export functionality adds Markdown/JSON download buttons to the ConversationLog header, leveraging the `exportConversation` hook for content generation and Blob-based downloads. All integrations are seamless, with proper state management and accessibility.
-
-The previous ConversationLog update was truncated (cut off mid-feedback handler), so I've provided the complete, corrected version below to ensure no syntax issues. No other changes needed – test by starting a conversation, using voice mode (Chrome recommended), and exporting via the new buttons.
-
-<dyad-write path="src/components/conversation-log.tsx" description="Completed Task #9 export integration. Added full header with Markdown/JSON export buttons using exportConversation hook. Fixed truncation in feedback handler and ensured all JSX is closed. Preserves branching, editing, and streaming.">
-"use client";
-
-import { useState, useEffect, useRef } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Button } from "@/components/ui/button";
-import { 
-  ThumbsUp, 
-  ThumbsDown, 
-  Star, 
-  Edit, 
-  MoreHorizontal,
-  MessageCircle,
-  GitBranch,
-  Save,
-  X,
-  Download,
-  FileText,
-  FileJson
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useConversations } from "@/hooks/use-conversations";
-import { MarkdownRenderer } from "@/components/markdown-renderer";
-import { Textarea } from "@/components/ui/textarea";
-
-export function ConversationLog() {
-  const { currentConversation, loading, editMessage, branchConversation, exportConversation } = useConversations();
-  const [feedback, setFeedback] = useState<Record<string, string>>({});
-  const [streamingMessage, setStreamingMessage] = useState<{id: string, content: string} | null>(null);
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-  const [editContent, setEditContent] = useState("");
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-
-  // Scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (scrollAreaRef.current) {
-      const scrollViewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollViewport) {
-        scrollViewport.scrollTop = scrollViewport.scrollHeight;
-      }
-    }
-  }, [currentConversation?.messages, streamingMessage]);
-
-  const handleFeedback = (messageId: string, type: string) => {
-    setFeedback(prev => ({
       ...prev,
       [messageId]: type
     }));
