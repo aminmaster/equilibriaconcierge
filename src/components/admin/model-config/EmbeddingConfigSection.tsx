@@ -67,12 +67,19 @@ export function EmbeddingConfigSection({
         console.log("Setting embedding config:", newConfig);
         setEmbeddingConfig(newConfig);
         
-        // Load models for the saved provider
-        if (embeddingData.provider) {
+        // Load models for the saved provider ONLY if providers are available
+        if (embeddingData.provider && availableProviders.length > 0) {
           await loadEmbeddingModelsForProvider(embeddingData.provider);
+        } else {
+          // If no providers available, clear the models list
+          setEmbeddingModels([]);
         }
       } else if (embeddingError) {
         console.log("No embedding config found, using defaults");
+        // If no config and no providers, clear models
+        if (availableProviders.length === 0) {
+          setEmbeddingModels([]);
+        }
       }
     } catch (error: any) {
       console.error("Error loading model configurations:", error);
@@ -172,7 +179,7 @@ export function EmbeddingConfigSection({
     console.log("Available providers:", availableProviders);
     console.log("Default embedding models:", defaultEmbeddingModels);
     loadModelConfigurations();
-  }, []);
+  }, [availableProviders]); // Re-run when availableProviders changes
 
   // Update embedding models when provider changes
   const handleEmbeddingProviderChange = (provider: string) => {
@@ -207,6 +214,7 @@ export function EmbeddingConfigSection({
   console.log("Rendering EmbeddingConfigSection");
   console.log("Embedding config:", embeddingConfig);
   console.log("Embedding models:", embeddingModels);
+  console.log("Available providers:", availableProviders);
 
   return (
     <div className="space-y-6">
@@ -244,7 +252,7 @@ export function EmbeddingConfigSection({
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <Label>Embedding Model</Label>
-              {embeddingConfig.provider === "openai" && (
+              {embeddingConfig.provider === "openai" && availableProviders.length > 0 && (
                 <Button 
                   variant="ghost" 
                   size="sm" 
@@ -268,7 +276,7 @@ export function EmbeddingConfigSection({
                 <SelectValue placeholder="Select embedding model" />
               </SelectTrigger>
               <SelectContent>
-                {embeddingModels.length > 0 ? (
+                {availableProviders.length > 0 && embeddingModels.length > 0 ? (
                   embeddingModels.map((model) => (
                     <SelectItem key={model.model} value={model.model}>
                       {model.model} ({model.dimensions} dimensions)
