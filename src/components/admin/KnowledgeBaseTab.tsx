@@ -41,7 +41,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
-import { DocumentViewer } from "@/components/admin/DocumentViewer";
+import { lazy, Suspense } from "react";
+
+const DocumentViewer = lazy(() => import("@/components/admin/DocumentViewer"));
 
 interface KnowledgeSource {
   id: string;
@@ -564,14 +566,21 @@ export function KnowledgeBaseTab() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {selectedSource && (
-        <DocumentViewer
-          open={showDocumentViewer}
-          onOpenChange={setShowDocumentViewer}
-          sourceId={selectedSource.id}
-          sourceName={selectedSource.name}
-        />
-      )}
+      <Suspense fallback={
+        <div className="flex items-center justify-center p-4">
+          <div className="h-8 w-8 rounded-full border-2 border-current border-t-transparent animate-spin" />
+          <span className="ml-2 text-sm text-muted-foreground">Loading document viewer...</span>
+        </div>
+      }>
+        {selectedSource && (
+          <DocumentViewer
+            open={showDocumentViewer}
+            onOpenChange={setShowDocumentViewer}
+            sourceId={selectedSource.id}
+            sourceName={selectedSource.name}
+          />
+        )}
+      </Suspense>
     </div>
   );
 }

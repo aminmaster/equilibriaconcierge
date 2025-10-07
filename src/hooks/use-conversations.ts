@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useAnonymousSession } from "@/hooks/use-anonymous-session";
@@ -18,7 +18,7 @@ export const useConversations = () => {
   const { sessionId, isAnonymous } = useAnonymousSession();
 
   // Load conversations with pagination
-  const loadConversations = async (page: number = 1) => {
+  const loadConversations = useCallback(async (page: number = 1) => {
     if (page === 1) {
       setLoading(true);
     } else {
@@ -107,16 +107,16 @@ export const useConversations = () => {
         setLoadingMore(false);
       }
     }
-  };
+  }, [user?.id, sessionId, isAnonymous, currentConversation]);
 
   // Load more conversations
-  const loadMoreConversations = () => {
+  const loadMoreConversations = useCallback(() => {
     const nextPage = Math.floor(conversations.length / MESSAGES_PER_PAGE) + 1;
     loadConversations(nextPage);
-  };
+  }, [conversations.length, loadConversations]);
 
   // Create a new conversation
-  const createConversation = async (title: string) => {
+  const createConversation = useCallback(async (title: string) => {
     try {
       // Prepare conversation data
       const conversationData: any = {
@@ -160,10 +160,30 @@ export const useConversations = () => {
     }
     
     return null;
-  };
+  }, [user?.id, sessionId, isAnonymous, conversations]);
+
+  // Load messages for a conversation
+  const loadMessages = useCallback(async (conversationId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('id, role, content, created_at')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true });
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      return data || [];
+    } catch (error: any) {
+      console.error("Error loading messages:", error);
+      throw error;
+    }
+  }, []);
 
   // Add a message to a conversation
-  const addMessage = async (conversationId: string, role: "user" | "assistant", content: string) => {
+  const addMessage = useCallback(async (conversationId: string, role: "user" | "assistant", content: string) => {
     try {
       const { data, error } = await supabase
         .from('messages')
@@ -210,10 +230,10 @@ export const useConversations = () => {
     }
     
     return null;
-  };
+  }, [currentConversation]);
 
   // Update conversation title
-  const updateConversationTitle = async (conversationId: string, title: string) => {
+  const updateConversationTitle = useCallback(async (conversationId: string, title: string) => {
     try {
       const { error } = await supabase
         .from('conversations')
@@ -243,10 +263,10 @@ export const useConversations = () => {
       console.error("Error updating conversation title:", error);
       throw error;
     }
-  };
+  }, [currentConversation, conversations]);
 
   // Delete conversation
-  const deleteConversation = async (conversationId: string) => {
+  const deleteConversation = useCallback(async (conversationId: string) => {
     try {
       const { error } = await supabase
         .from('conversations')
@@ -270,10 +290,10 @@ export const useConversations = () => {
       console.error("Error deleting conversation:", error);
       throw error;
     }
-  };
+  }, [conversations, currentConversation]);
 
   // Branch a conversation (create a new conversation based on existing one)
-  const branchConversation = async (conversationId: string, messageIndex: number) => {
+  const branchConversation = useCallback(async (conversationId: string, messageIndex: number) => {
     try {
       // Get the original conversation
       const originalConversation = conversations.find(conv => conv.id === conversationId);
@@ -342,10 +362,10 @@ export const useConversations = () => {
       console.error("Error branching conversation:", error);
       throw error;
     }
-  };
+  }, [conversations, user?.id, sessionId, isAnonymous]);
 
   // Edit a message in a conversation
-  const editMessage = async (messageId: string, newContent: string) => {
+  const editMessage = useCallback(async (messageId: string, newContent: string) => {
     try {
       const { error } = await supabase
         .from('messages')
@@ -389,10 +409,10 @@ export const useConversations = () => {
       console.error("Error editing message:", error);
       throw error;
     }
-  };
+  }, [currentConversation, conversations]);
 
   // Export conversation
-  const exportConversation = async (conversationId: string, format: "json" | "markdown" = "json") => {
+  const exportConversation = useCallback(async (conversationId: string, format: "json" | "markdown" = "json") => {
     try {
       // Get the conversation with all messages
       const { data, error } = await supabase
@@ -431,7 +451,7 @@ export const useConversations = () => {
       console.error("Error exporting conversation:", error);
       throw error;
     }
-  };
+  }, []);
 
   // Load initial conversations
   useEffect(() => {
@@ -451,6 +471,7 @@ export const useConversations = () => {
     hasMore,
     loadMoreConversations,
     createConversation,
+    loadMessages,
     addMessage,
     updateConversationTitle,
     deleteConversation,

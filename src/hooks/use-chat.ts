@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useConversations } from "@/hooks/use-conversations";
 import { useToast } from "@/hooks/use-toast";
@@ -25,7 +25,7 @@ export const useChat = () => {
     };
   }, []);
 
-  const streamMessage = async (content: string, onChunk: (chunk: string) => void) => {
+  const streamMessage = useCallback(async (content: string, onChunk: (chunk: string) => void) => {
     if (isLoading || configLoading) return;
     
     setIsLoading(true);
@@ -219,18 +219,18 @@ export const useChat = () => {
       setIsLoading(false);
       abortControllerRef.current = null;
     }
-  };
+  }, [isLoading, configLoading, currentConversation, addMessage, createConversation, modelConfig, toast]);
 
-  const cancelStream = () => {
+  const cancelStream = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
-  };
+  }, []);
 
   // Clear message buffer
-  const clearBuffer = () => {
+  const clearBuffer = useCallback(() => {
     setMessageBuffer([]);
-  };
+  }, []);
 
   return {
     streamMessage,
