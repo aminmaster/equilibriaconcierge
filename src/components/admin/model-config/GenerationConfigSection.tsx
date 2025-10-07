@@ -51,17 +51,21 @@ export function GenerationConfigSection({
         .single();
       
       if (!generationError && generationData) {
-        setGenerationConfig({
+        const newConfig = {
           provider: generationData.provider || "openrouter",
           model: generationData.model || "openai/gpt-4o",
           temperature: generationData.temperature !== null ? generationData.temperature : 0.7,
           maxTokens: generationData.max_tokens || 2048,
-        });
+        };
+        
+        setGenerationConfig(newConfig);
         
         // Load models for the saved provider
         if (generationData.provider) {
           await loadGenerationModelsForProvider(generationData.provider);
         }
+      } else if (generationError) {
+        console.log("No generation config found, using defaults");
       }
     } catch (error: any) {
       console.error("Error loading model configurations:", error);
@@ -77,18 +81,18 @@ export function GenerationConfigSection({
       } else if (provider === "openrouter") {
         await fetchOpenRouterModels();
       } else if (provider === "xai") {
-        setGenerationModels(defaultProviderModels.xai);
+        setGenerationModels(defaultProviderModels.xai || []);
       } else {
         setGenerationModels(
           defaultProviderModels[provider as keyof typeof defaultProviderModels] || 
-          defaultProviderModels.openrouter
+          defaultProviderModels.openrouter || []
         );
       }
     } catch (error: any) {
       console.error(`Error loading generation models for ${provider}:`, error);
       setGenerationModels(
         defaultProviderModels[provider as keyof typeof defaultProviderModels] || 
-        defaultProviderModels.openrouter
+        defaultProviderModels.openrouter || []
       );
     } finally {
       setLoadingGenerationModels(false);
@@ -103,9 +107,12 @@ export function GenerationConfigSection({
       .eq('provider', 'openai')
       .single();
 
-    if (error) throw error;
+    if (error) {
+      setGenerationModels(defaultProviderModels.openai || []);
+      return;
+    }
     if (!data) {
-      setGenerationModels(defaultProviderModels.openai);
+      setGenerationModels(defaultProviderModels.openai || []);
       return;
     }
 
@@ -118,7 +125,7 @@ export function GenerationConfigSection({
     });
 
     if (!response.ok) {
-      setGenerationModels(defaultProviderModels.openai);
+      setGenerationModels(defaultProviderModels.openai || []);
       return;
     }
 
@@ -139,7 +146,7 @@ export function GenerationConfigSection({
     if (chatModels.length > 0) {
       setGenerationModels(chatModels);
     } else {
-      setGenerationModels(defaultProviderModels.openai);
+      setGenerationModels(defaultProviderModels.openai || []);
     }
   };
 
@@ -151,9 +158,12 @@ export function GenerationConfigSection({
       .eq('provider', 'openrouter')
       .single();
 
-    if (error) throw error;
+    if (error) {
+      setGenerationModels(defaultProviderModels.openrouter || []);
+      return;
+    }
     if (!data) {
-      setGenerationModels(defaultProviderModels.openrouter);
+      setGenerationModels(defaultProviderModels.openrouter || []);
       return;
     }
 
@@ -166,7 +176,7 @@ export function GenerationConfigSection({
     });
 
     if (!response.ok) {
-      setGenerationModels(defaultProviderModels.openrouter);
+      setGenerationModels(defaultProviderModels.openrouter || []);
       return;
     }
 
@@ -180,7 +190,7 @@ export function GenerationConfigSection({
     if (models.length > 0) {
       setGenerationModels(models);
     } else {
-      setGenerationModels(defaultProviderModels.openrouter);
+      setGenerationModels(defaultProviderModels.openrouter || []);
     }
   };
 
@@ -191,10 +201,13 @@ export function GenerationConfigSection({
 
   // Update generation models when provider changes
   const handleGenerationProviderChange = (provider: string) => {
+    const defaultModels = defaultProviderModels[provider as keyof typeof defaultProviderModels] || 
+                         defaultProviderModels.openrouter || [];
+    
     setGenerationConfig(prev => ({
       ...prev,
       provider: provider,
-      model: defaultProviderModels[provider as keyof typeof defaultProviderModels]?.[0] || ""
+      model: defaultModels[0] || ""
     }));
     
     // Load models for the new provider

@@ -34,7 +34,7 @@ export function EmbeddingConfigSection({
   });
   
   const [embeddingModels, setEmbeddingModels] = useState<Array<{model: string, dimensions: number}>>(
-    defaultEmbeddingModels.openai
+    defaultEmbeddingModels.openai || []
   );
   const [loadingEmbeddingModels, setLoadingEmbeddingModels] = useState(false);
   const { toast } = useToast();
@@ -50,16 +50,24 @@ export function EmbeddingConfigSection({
         .single();
       
       if (!embeddingError && embeddingData) {
-        setEmbeddingConfig({
+        const defaultModels = defaultEmbeddingModels[embeddingData.provider as keyof typeof defaultEmbeddingModels] || 
+                             defaultEmbeddingModels.openai || [];
+        const defaultModel = defaultModels[0] || { model: "text-embedding-3-large", dimensions: 3072 };
+        
+        const newConfig = {
           provider: embeddingData.provider || "openai",
-          model: embeddingData.model || "text-embedding-3-large",
-          dimensions: embeddingData.dimensions || 3072,
-        });
+          model: embeddingData.model || defaultModel.model,
+          dimensions: embeddingData.dimensions || defaultModel.dimensions,
+        };
+        
+        setEmbeddingConfig(newConfig);
         
         // Load models for the saved provider
         if (embeddingData.provider) {
           await loadEmbeddingModelsForProvider(embeddingData.provider);
         }
+      } else if (embeddingError) {
+        console.log("No embedding config found, using defaults");
       }
     } catch (error: any) {
       console.error("Error loading model configurations:", error);
@@ -73,18 +81,18 @@ export function EmbeddingConfigSection({
       if (provider === "openai") {
         await fetchOpenAIEmbeddingModels();
       } else if (provider === "openrouter") {
-        setEmbeddingModels(defaultEmbeddingModels.openrouter);
+        setEmbeddingModels(defaultEmbeddingModels.openrouter || []);
       } else {
         setEmbeddingModels(
           defaultEmbeddingModels[provider as keyof typeof defaultEmbeddingModels] || 
-          defaultEmbeddingModels.openai
+          defaultEmbeddingModels.openai || []
         );
       }
     } catch (error: any) {
       console.error(`Error loading embedding models for ${provider}:`, error);
       setEmbeddingModels(
         defaultEmbeddingModels[provider as keyof typeof defaultEmbeddingModels] || 
-        defaultEmbeddingModels.openai
+        defaultEmbeddingModels.openai || []
       );
     } finally {
       setLoadingEmbeddingModels(false);
@@ -99,9 +107,12 @@ export function EmbeddingConfigSection({
       .eq('provider', 'openai')
       .single();
 
-    if (error) throw error;
+    if (error) {
+      setEmbeddingModels(defaultEmbeddingModels.openai || []);
+      return;
+    }
     if (!data) {
-      setEmbeddingModels(defaultEmbeddingModels.openai);
+      setEmbeddingModels(defaultEmbeddingModels.openai || []);
       return;
     }
 
@@ -114,7 +125,7 @@ export function EmbeddingConfigSection({
     });
 
     if (!response.ok) {
-      setEmbeddingModels(defaultEmbeddingModels.openai);
+      setEmbeddingModels(defaultEmbeddingModels.openai || []);
       return;
     }
 
@@ -139,7 +150,7 @@ export function EmbeddingConfigSection({
     if (embeddingModels.length > 0) {
       setEmbeddingModels(embeddingModels);
     } else {
-      setEmbeddingModels(defaultEmbeddingModels.openai);
+      setEmbeddingModels(defaultEmbeddingModels.openai || []);
     }
   };
 
@@ -150,14 +161,15 @@ export function EmbeddingConfigSection({
 
   // Update embedding models when provider changes
   const handleEmbeddingProviderChange = (provider: string) => {
-    const defaultModel = defaultEmbeddingModels[provider as keyof typeof defaultEmbeddingModels]?.[0] || 
-                         defaultEmbeddingModels.openai?.[0];
+    const defaultModels = defaultEmbeddingModels[provider as keyof typeof defaultEmbeddingModels] || 
+                         defaultEmbeddingModels.openai || [];
+    const defaultModel = defaultModels[0] || { model: "text-embedding-3-large", dimensions: 3072 };
     
     setEmbeddingConfig(prev => ({
       ...prev,
       provider: provider,
-      model: defaultModel?.model || "",
-      dimensions: defaultModel?.dimensions || 1536
+      model: defaultModel.model,
+      dimensions: defaultModel.dimensions
     }));
     
     // Load models for the new provider
