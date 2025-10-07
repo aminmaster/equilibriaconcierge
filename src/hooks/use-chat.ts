@@ -211,6 +211,12 @@ export const useChat = () => {
           description: "Please configure AI models in the admin panel before using the chat.",
           variant: "destructive"
         });
+      } else if (err.message?.includes("API key")) {
+        toast({
+          title: "API Key Required",
+          description: "Please add API keys in the admin panel before using the chat.",
+          variant: "destructive"
+        });
       }
     } finally {
       setIsLoading(false);

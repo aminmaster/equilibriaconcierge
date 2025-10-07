@@ -66,6 +66,7 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
 
   // Check if error is related to missing model configurations
   const isModelConfigError = error?.includes("model configurations") || error?.includes("configure models");
+  const isApiKeyError = error?.includes("API key");
 
   return (
     <div className="bg-background/80 backdrop-blur-sm border-t">
@@ -192,13 +193,13 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
                 <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                 <div>
                   <p>Error: {error}</p>
-                  {isModelConfigError && (
+                  {(isModelConfigError || isApiKeyError) && (
                     <Button 
                       variant="link" 
                       className="p-0 h-auto text-xs text-destructive underline"
                       onClick={() => navigate("/admin")}
                     >
-                      Configure models in admin panel
+                      Configure in admin panel
                     </Button>
                   )}
                 </div>
