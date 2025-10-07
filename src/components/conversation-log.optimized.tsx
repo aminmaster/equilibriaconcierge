@@ -198,7 +198,13 @@ const MessageItem = memo(({
 MessageItem.displayName = 'MessageItem';
 
 export function ConversationLog() {
-  const { currentConversation, loading } = useConversations();
+  const { 
+    currentConversation, 
+    loading, 
+    editMessage, 
+    branchConversation,
+    conversations 
+  } = useConversations();
   const [feedback, setFeedback] = useState<Record<string, string>>({});
   const [streamingMessage, setStreamingMessage] = useState<{id: string, content: string} | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -217,9 +223,23 @@ export function ConversationLog() {
   }, []);
 
   const handleBranchConversation = useCallback(async (messageIndex: number) => {
-    // In a real implementation, this would call the branchConversation function from useConversations
-    console.log("Branching at message index:", messageIndex);
-  }, []);
+    if (currentConversation) {
+      try {
+        const newConversation = await branchConversation(currentConversation.id, messageIndex);
+        if (newConversation) {
+          // Add the new branched conversation to the list
+          const updatedConversations = [...conversations, newConversation];
+          // Note: In a full app, you'd update the conversations state here via a setter or context
+          console.log("Branched conversation created:", newConversation.id);
+          
+          // Switch to the new conversation
+          // Note: This assumes useConversations exposes a way to update the list; adjust as needed
+        }
+      } catch (error) {
+        console.error("Error branching conversation:", error);
+      }
+    }
+  }, [currentConversation, branchConversation, conversations]);
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
