@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { GenerationConfigSection } from "@/components/admin/model-config/GenerationConfigSection";
 import { EmbeddingConfigSection } from "@/components/admin/model-config/EmbeddingConfigSection";
+import { useModelConfig } from "@/hooks/use-model-config";
 
 // Define default models for each provider (fallback when API fetching isn't possible)
 const DEFAULT_PROVIDER_MODELS = {
@@ -68,6 +69,9 @@ export function ModelConfigTab() {
   const [availableProviders, setAvailableProviders] = useState<string[]>([]);
   const [loadingProviders, setLoadingProviders] = useState(true);
   const [saving, setSaving] = useState(false);
+  
+  // Use the enhanced model config hook
+  const { config, saveConfig, resetToDefaults } = useModelConfig();
   
   // State to hold current config values from child components
   const [generationConfig, setGenerationConfig] = useState<any>(null);
@@ -124,81 +128,21 @@ export function ModelConfigTab() {
         throw new Error("Embedding configuration data not available. Please make a selection first.");
       }
       
-      // Save generation configuration - handle conflicts properly
-      const { data: existingGeneration, error: fetchGenerationError } = await supabase
-        .from('model_configurations')
-        .select('id')
-        .eq('type', 'generation');
-      
-      if (fetchGenerationError && fetchGenerationError.code !== 'PGRST116') {
-        throw fetchGenerationError;
-      }
-      
-      // If there are multiple rows, delete them all first
-      if (existingGeneration && existingGeneration.length > 0) {
-        const { error: deleteError } = await supabase
-          .from('model_configurations')
-          .delete()
-          .eq('type', 'generation');
-        
-        if (deleteError) throw deleteError;
-      }
-      
-      const generationPayload = {
-        id: 'generation-default',
-        type: 'generation',
-        provider: generationConfig.provider,
-        model: generationConfig.model,
-        temperature: generationConfig.temperature,
-        max_tokens: generationConfig.maxTokens,
-        updated_at: new Date().toISOString()
+      // Create the full configuration object
+      const fullConfig = {
+        generation: generationConfig,
+        embedding: embeddingConfig
       };
       
-      const { error: generationError } = await supabase
-        .from('model_configurations')
-        .insert([generationPayload]);
+      // Save using the enhanced hook
+      const success = await saveConfig(fullConfig);
       
-      if (generationError) throw generationError;
-      
-      // Save embedding configuration - handle conflicts properly
-      const { data: existingEmbedding, error: fetchEmbeddingError } = await supabase
-        .from('model_configurations')
-        .select('id')
-        .eq('type', 'embedding');
-      
-      if (fetchEmbeddingError && fetchEmbeddingError.code !== 'PGRST116') {
-        throw fetchEmbeddingError;
+      if (success) {
+        toast({
+          title: "Configuration Saved",
+          description: "Model configuration has been updated successfully.",
+        });
       }
-      
-      // If there are multiple rows, delete them all first
-      if (existingEmbedding && existingEmbedding.length > 0) {
-        const { error: deleteError } = await supabase
-          .from('model_configurations')
-          .delete()
-          .eq('type', 'embedding');
-        
-        if (deleteError) throw deleteError;
-      }
-      
-      const embeddingPayload = {
-        id: 'embedding-default',
-        type: 'embedding',
-        provider: embeddingConfig.provider,
-        model: embeddingConfig.model,
-        dimensions: embeddingConfig.dimensions,
-        updated_at: new Date().toISOString()
-      };
-      
-      const { error: embeddingError } = await supabase
-        .from('model_configurations')
-        .insert([embeddingPayload]);
-      
-      if (embeddingError) throw embeddingError;
-      
-      toast({
-        title: "Configuration Saved",
-        description: "Model configuration has been updated successfully.",
-      });
     } catch (error: any) {
       console.error("Error saving configuration:", error);
       toast({
@@ -213,89 +157,11 @@ export function ModelConfigTab() {
 
   const handleReset = async () => {
     try {
-      // Reset to default configurations
-      const defaultGenerationModels = DEFAULT_PROVIDER_MODELS.openrouter || [];
-      const defaultEmbeddingModels = DEFAULT_EMBEDDING_MODELS.openai || [];
-      const defaultEmbeddingModel = defaultEmbeddingModels[0] || { model: "text-embedding-3-large", dimensions: 3072 };
-      
-      // Save default generation configuration
-      const { data: existingGeneration, error: fetchGenerationError } = await supabase
-        .from('model_configurations')
-        .select('id')
-        .eq('type', 'generation');
-      
-      if (fetchGenerationError && fetchGenerationError.code !== 'PGRST116') {
-        throw fetchGenerationError;
+      const success = await resetToDefaults();
+      if (success) {
+        // Reload the page to refresh the configuration
+        window.location.reload();
       }
-      
-      // If there are multiple rows, delete them all first
-      if (existingGeneration && existingGeneration.length > 0) {
-        const { error: deleteError } = await supabase
-          .from('model_configurations')
-          .delete()
-          .eq('type', 'generation');
-        
-        if (deleteError) throw deleteError;
-      }
-      
-      const generationPayload = {
-        id: 'generation-default',
-        type: 'generation',
-        provider: 'openrouter',
-        model: defaultGenerationModels[0] || '',
-        temperature: 0.7,
-        max_tokens: 2048,
-        updated_at: new Date().toISOString()
-      };
-      
-      const { error: generationError } = await supabase
-        .from('model_configurations')
-        .insert([generationPayload]);
-      
-      if (generationError) throw generationError;
-      
-      // Save default embedding configuration
-      const { data: existingEmbedding, error: fetchEmbeddingError } = await supabase
-        .from('model_configurations')
-        .select('id')
-        .eq('type', 'embedding');
-      
-      if (fetchEmbeddingError && fetchEmbeddingError.code !== 'PGRST116') {
-        throw fetchEmbeddingError;
-      }
-      
-      // If there are multiple rows, delete them all first
-      if (existingEmbedding && existingEmbedding.length > 0) {
-        const { error: deleteError } = await supabase
-          .from('model_configurations')
-          .delete()
-          .eq('type', 'embedding');
-        
-        if (deleteError) throw deleteError;
-      }
-      
-      const embeddingPayload = {
-        id: 'embedding-default',
-        type: 'embedding',
-        provider: 'openai',
-        model: defaultEmbeddingModel.model,
-        dimensions: defaultEmbeddingModel.dimensions,
-        updated_at: new Date().toISOString()
-      };
-      
-      const { error: embeddingError } = await supabase
-        .from('model_configurations')
-        .insert([embeddingPayload]);
-      
-      if (embeddingError) throw embeddingError;
-      
-      toast({
-        title: "Configuration Reset",
-        description: "Model configuration has been reset to defaults.",
-      });
-      
-      // Reload the page to refresh the configuration
-      window.location.reload();
     } catch (error: any) {
       console.error("Error resetting configuration:", error);
       toast({
