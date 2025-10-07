@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -68,6 +68,10 @@ export function ModelConfigTab() {
   const [availableProviders, setAvailableProviders] = useState<string[]>([]);
   const [loadingProviders, setLoadingProviders] = useState(true);
   const [saving, setSaving] = useState(false);
+  
+  // Refs to get current config values from child components
+  const generationConfigRef = useRef<any>(null);
+  const embeddingConfigRef = useRef<any>(null);
 
   // Load available providers based on saved API keys
   const loadAvailableProviders = async () => {
@@ -105,18 +109,120 @@ export function ModelConfigTab() {
 
   const handleSave = async () => {
     setSaving(true);
-    toast({
-      title: "Configuration Saved",
-      description: "Model configuration has been updated successfully.",
-    });
-    setSaving(false);
+    
+    try {
+      // Get current config values from refs
+      const generationConfig = generationConfigRef.current;
+      const embeddingConfig = embeddingConfigRef.current;
+      
+      if (!generationConfig || !embeddingConfig) {
+        throw new Error("Configuration data not available");
+      }
+      
+      // Save generation configuration
+      const { error: generationError } = await supabase
+        .from('model_configurations')
+        .upsert({
+          id: 'generation-default',
+          type: 'generation',
+          provider: generationConfig.provider,
+          model: generationConfig.model,
+          temperature: generationConfig.temperature,
+          max_tokens: generationConfig.maxTokens,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'type'
+        });
+      
+      if (generationError) throw generationError;
+      
+      // Save embedding configuration
+      const { error: embeddingError } = await supabase
+        .from('model_configurations')
+        .upsert({
+          id: 'embedding-default',
+          type: 'embedding',
+          provider: embeddingConfig.provider,
+          model: embeddingConfig.model,
+          dimensions: embeddingConfig.dimensions,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'type'
+        });
+      
+      if (embeddingError) throw embeddingError;
+      
+      toast({
+        title: "Configuration Saved",
+        description: "Model configuration has been updated successfully.",
+      });
+    } catch (error: any) {
+      console.error("Error saving configuration:", error);
+      toast({
+        title: "Failed to Save Configuration",
+        description: error.message || "Could not save model configuration.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleReset = () => {
-    toast({
-      title: "Configuration Reset",
-      description: "Model configuration has been reset to defaults.",
-    });
+  const handleReset = async () => {
+    try {
+      // Reset to default configurations
+      const defaultGenerationModels = DEFAULT_PROVIDER_MODELS.openrouter || [];
+      const defaultEmbeddingModels = DEFAULT_EMBEDDING_MODELS.openai || [];
+      const defaultEmbeddingModel = defaultEmbeddingModels[0] || { model: "text-embedding-3-large", dimensions: 3072 };
+      
+      // Save default generation configuration
+      const { error: generationError } = await supabase
+        .from('model_configurations')
+        .upsert({
+          id: 'generation-default',
+          type: 'generation',
+          provider: 'openrouter',
+          model: defaultGenerationModels[0] || '',
+          temperature: 0.7,
+          max_tokens: 2048,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'type'
+        });
+      
+      if (generationError) throw generationError;
+      
+      // Save default embedding configuration
+      const { error: embeddingError } = await supabase
+        .from('model_configurations')
+        .upsert({
+          id: 'embedding-default',
+          type: 'embedding',
+          provider: 'openai',
+          model: defaultEmbeddingModel.model,
+          dimensions: defaultEmbeddingModel.dimensions,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'type'
+        });
+      
+      if (embeddingError) throw embeddingError;
+      
+      toast({
+        title: "Configuration Reset",
+        description: "Model configuration has been reset to defaults.",
+      });
+      
+      // Reload the page to refresh the configuration
+      window.location.reload();
+    } catch (error: any) {
+      console.error("Error resetting configuration:", error);
+      toast({
+        title: "Failed to Reset Configuration",
+        description: error.message || "Could not reset model configuration.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -153,6 +259,7 @@ export function ModelConfigTab() {
               availableProviders={availableProviders}
               loadingProviders={loadingProviders}
               defaultProviderModels={DEFAULT_PROVIDER_MODELS}
+              ref={generationConfigRef}
             />
           </div>
         )}
@@ -164,6 +271,7 @@ export function ModelConfigTab() {
               availableProviders={availableProviders}
               loadingProviders={loadingProviders}
               defaultEmbeddingModels={DEFAULT_EMBEDDING_MODELS}
+              ref={embeddingConfigRef}
             />
           </div>
         )}
