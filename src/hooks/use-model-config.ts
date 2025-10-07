@@ -62,6 +62,27 @@ export const useModelConfig = () => {
       
       data.forEach((item: any) => {
         if (item.type === 'generation') {
+          // Validate generation config
+          if (typeof item.provider !== 'string' || item.provider.length === 0) {
+            console.warn("Invalid generation provider, using default");
+            item.provider = DEFAULT_GENERATION_CONFIG.provider;
+          }
+          
+          if (typeof item.model !== 'string' || item.model.length === 0) {
+            console.warn("Invalid generation model, using default");
+            item.model = DEFAULT_GENERATION_CONFIG.model;
+          }
+          
+          if (typeof item.temperature !== 'number' || item.temperature < 0 || item.temperature > 2) {
+            console.warn("Invalid generation temperature, using default");
+            item.temperature = DEFAULT_GENERATION_CONFIG.temperature;
+          }
+          
+          if (typeof item.max_tokens !== 'number' || item.max_tokens < 1) {
+            console.warn("Invalid generation max_tokens, using default");
+            item.max_tokens = DEFAULT_GENERATION_CONFIG.maxTokens;
+          }
+          
           newConfig.generation = {
             provider: item.provider,
             model: item.model,
@@ -69,6 +90,22 @@ export const useModelConfig = () => {
             maxTokens: item.max_tokens || 2048
           };
         } else if (item.type === 'embedding') {
+          // Validate embedding config
+          if (typeof item.provider !== 'string' || item.provider.length === 0) {
+            console.warn("Invalid embedding provider, using default");
+            item.provider = DEFAULT_EMBEDDING_CONFIG.provider;
+          }
+          
+          if (typeof item.model !== 'string' || item.model.length === 0) {
+            console.warn("Invalid embedding model, using default");
+            item.model = DEFAULT_EMBEDDING_CONFIG.model;
+          }
+          
+          if (typeof item.dimensions !== 'number' || item.dimensions < 1) {
+            console.warn("Invalid embedding dimensions, using default");
+            item.dimensions = DEFAULT_EMBEDDING_CONFIG.dimensions;
+          }
+          
           newConfig.embedding = {
             provider: item.provider,
             model: item.model,
@@ -107,6 +144,39 @@ export const useModelConfig = () => {
 
   const saveConfig = async (newConfig: ModelConfigurations) => {
     try {
+      // Validate the new config before saving
+      if (!newConfig.generation.provider || typeof newConfig.generation.provider !== 'string') {
+        throw new Error("Invalid generation provider");
+      }
+      
+      if (!newConfig.generation.model || typeof newConfig.generation.model !== 'string') {
+        throw new Error("Invalid generation model");
+      }
+      
+      if (typeof newConfig.generation.temperature !== 'number' || 
+          newConfig.generation.temperature < 0 || 
+          newConfig.generation.temperature > 2) {
+        throw new Error("Invalid generation temperature (must be between 0 and 2)");
+      }
+      
+      if (typeof newConfig.generation.maxTokens !== 'number' || 
+          newConfig.generation.maxTokens < 1) {
+        throw new Error("Invalid max tokens (must be greater than 0)");
+      }
+      
+      if (!newConfig.embedding.provider || typeof newConfig.embedding.provider !== 'string') {
+        throw new Error("Invalid embedding provider");
+      }
+      
+      if (!newConfig.embedding.model || typeof newConfig.embedding.model !== 'string') {
+        throw new Error("Invalid embedding model");
+      }
+      
+      if (typeof newConfig.embedding.dimensions !== 'number' || 
+          newConfig.embedding.dimensions < 1) {
+        throw new Error("Invalid embedding dimensions (must be greater than 0)");
+      }
+      
       // Delete existing configurations
       await supabase
         .from('model_configurations')

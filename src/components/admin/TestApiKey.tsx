@@ -86,45 +86,39 @@ export function TestApiKey() {
     const updatedKeyInfo = [...keyInfo];
     
     try {
-      // Test each API key based on its provider
+      // Test each API key using the edge function
       for (let i = 0; i < updatedKeyInfo.length; i++) {
         const key = updatedKeyInfo[i];
         try {
-          let success = false;
-          let message = "";
+          // Get session token
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
           
-          // Get the actual API key from database
-          const { data, error } = await supabase
-            .from('api_keys')
-            .select('api_key')
-            .eq('id', key.id)
-            .single();
-          
-          if (error) throw error;
-          if (!data) throw new Error("API key not found");
-          
-          const apiKey = data.api_key;
-          
-          // Test based on provider
-          switch (key.provider) {
-            case 'openai':
-              success = await testOpenAIKey(apiKey);
-              message = success ? "OpenAI API key is valid" : "OpenAI API key is invalid";
-              break;
-            case 'openrouter':
-              success = await testOpenRouterKey(apiKey);
-              message = success ? "OpenRouter API key is valid" : "OpenRouter API key is invalid";
-              break;
-            case 'anthropic':
-              success = await testAnthropicKey(apiKey);
-              message = success ? "Anthropic API key is valid" : "Anthropic API key is invalid";
-              break;
-            default:
-              success = true;
-              message = "Provider test not implemented";
+          if (!token) {
+            throw new Error("Not authenticated");
           }
           
-          updatedKeyInfo[i].testResult = { success, message };
+          // Call the test-api-key edge function
+          const response = await fetch('https://jmxemujffofqpqrxajlb.supabase.co/functions/v1/test-api-key', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ provider: key.provider })
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+          }
+          
+          const testData = await response.json();
+          
+          updatedKeyInfo[i].testResult = { 
+            success: testData.isValid, 
+            message: testData.testResult 
+          };
         } catch (error: any) {
           updatedKeyInfo[i].testResult = { 
             success: false, 
@@ -147,63 +141,6 @@ export function TestApiKey() {
       });
     } finally {
       setTesting(false);
-    }
-  };
-
-  const testOpenAIKey = async (apiKey: string): Promise<boolean> => {
-    try {
-      const response = await fetch('https://api.openai.com/v1/models', {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      return response.ok;
-    } catch (error) {
-      return false;
-    }
-  };
-
-  const testOpenRouterKey = async (apiKey: string): Promise<boolean> => {
-    try {
-      const response = await fetch('https://openrouter.ai/api/v1/models', {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      return response.ok;
-    } catch (error) {
-      return false;
-    }
-  };
-
-  const testAnthropicKey = async (apiKey: string): Promise<boolean> => {
-    try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: "claude-3-haiku-20240307",
-          max_tokens: 10,
-          messages: [{
-            role: "user",
-            content: "Hello"
-          }]
-        })
-      });
-      
-      // For Anthropic, a 400 error might still mean the key is valid (just bad request)
-      // So we check for authentication errors specifically
-      return response.status !== 401 && response.status !== 403;
-    } catch (error) {
-      return false;
     }
   };
 
