@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -24,10 +24,47 @@ export function SoundSettingsPanel({ open, onOpenChange }: SoundSettingsPanelPro
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [voiceFeedback, setVoiceFeedback] = useState(true);
 
+  // Load settings from localStorage on mount
+  useEffect(() => {
+    const savedVolume = localStorage.getItem('soundVolume');
+    const savedSoundEnabled = localStorage.getItem('soundEnabled');
+    const savedVoiceFeedback = localStorage.getItem('voiceFeedback');
+    
+    if (savedVolume) {
+      setVolume([parseInt(savedVolume)]);
+    }
+    
+    if (savedSoundEnabled) {
+      setSoundEnabled(savedSoundEnabled === 'true');
+    }
+    
+    if (savedVoiceFeedback) {
+      setVoiceFeedback(savedVoiceFeedback === 'true');
+    }
+  }, []);
+
+  // Save settings to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem('soundVolume', volume[0].toString());
+  }, [volume]);
+
+  useEffect(() => {
+    localStorage.setItem('soundEnabled', soundEnabled.toString());
+  }, [soundEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem('voiceFeedback', voiceFeedback.toString());
+  }, [voiceFeedback]);
+
   const resetToDefaults = () => {
     setVolume([80]);
     setSoundEnabled(true);
     setVoiceFeedback(true);
+  };
+
+  const handleSave = () => {
+    // In a real implementation, you might want to dispatch an event or call a context function
+    onOpenChange(false);
   };
 
   return (
@@ -43,43 +80,49 @@ export function SoundSettingsPanel({ open, onOpenChange }: SoundSettingsPanelPro
         <div className="space-y-6 py-4">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <Label>Sound Effects</Label>
+              <Label htmlFor="sound-enabled">Sound Effects</Label>
               <p className="text-sm text-muted-foreground">
                 Enable UI sound effects
               </p>
             </div>
             <Switch
+              id="sound-enabled"
               checked={soundEnabled}
               onCheckedChange={setSoundEnabled}
+              aria-label="Toggle sound effects"
             />
           </div>
           
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label>Volume</Label>
-              <span className="text-sm text-muted-foreground w-12 text-right">
+              <Label htmlFor="volume-slider">Volume</Label>
+              <span className="text-sm text-muted-foreground w-12 text-right" aria-live="polite">
                 {volume[0]}%
               </span>
             </div>
             <Slider
+              id="volume-slider"
               value={volume}
               onValueChange={setVolume}
               max={100}
               step={1}
               className="w-full"
+              aria-label="Adjust volume"
             />
           </div>
           
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <Label>Voice Feedback</Label>
+              <Label htmlFor="voice-feedback">Voice Feedback</Label>
               <p className="text-sm text-muted-foreground">
                 AI responses spoken aloud
               </p>
             </div>
             <Switch
+              id="voice-feedback"
               checked={voiceFeedback}
               onCheckedChange={setVoiceFeedback}
+              aria-label="Toggle voice feedback"
             />
           </div>
         </div>
@@ -89,11 +132,12 @@ export function SoundSettingsPanel({ open, onOpenChange }: SoundSettingsPanelPro
             variant="outline"
             onClick={resetToDefaults}
             className="gap-2"
+            aria-label="Reset to default settings"
           >
             <RotateCcw className="h-4 w-4" />
             Reset
           </Button>
-          <Button onClick={() => onOpenChange(false)}>
+          <Button onClick={handleSave} aria-label="Save sound preferences">
             Save Preferences
           </Button>
         </div>

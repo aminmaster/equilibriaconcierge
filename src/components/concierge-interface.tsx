@@ -86,6 +86,7 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
                     handleSubmit(e);
                   }
                 }}
+                aria-label="Type your message"
               />
               
               <div className="flex gap-1">
@@ -139,6 +140,7 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
                         height: `${Math.random() * 15 + 3}px`,
                         animationDelay: `${i * 0.1}s`
                       }}
+                      aria-hidden="true"
                     />
                   ))}
                 </div>
@@ -187,7 +189,7 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
           )}
           
           {error && (
-            <div className="mt-2 p-2 bg-destructive/10 rounded text-xs text-destructive">
+            <div className="mt-2 p-2 bg-destructive/10 rounded text-xs text-destructive" role="alert">
               <div className="flex items-start gap-1">
                 <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                 <div>
@@ -197,6 +199,7 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
                       variant="link" 
                       className="p-0 h-auto text-xs text-destructive underline"
                       onClick={() => navigate("/admin")}
+                      aria-label="Configure models in admin panel"
                     >
                       Configure models in admin panel
                     </Button>

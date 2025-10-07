@@ -109,6 +109,7 @@ export function ConversationLog() {
                           variant="ghost"
                           className="h-6 w-6"
                           onClick={() => handleFeedback(message.id, "up")}
+                          aria-label="Thumbs up"
                         >
                           <ThumbsUp 
                             className={cn(
@@ -122,6 +123,7 @@ export function ConversationLog() {
                           variant="ghost"
                           className="h-6 w-6"
                           onClick={() => handleFeedback(message.id, "down")}
+                          aria-label="Thumbs down"
                         >
                           <ThumbsDown 
                             className={cn(
@@ -134,6 +136,7 @@ export function ConversationLog() {
                         size="icon"
                         variant="ghost"
                         className="h-6 w-6"
+                        aria-label="Star message"
                       >
                         <Star className="h-3 w-3" />
                       </Button>
@@ -141,6 +144,7 @@ export function ConversationLog() {
                         size="icon"
                         variant="ghost"
                         className="h-6 w-6"
+                        aria-label="Edit message"
                       >
                         <Edit className="h-3 w-3" />
                       </Button>
@@ -148,6 +152,7 @@ export function ConversationLog() {
                         size="icon"
                         variant="ghost"
                         className="h-6 w-6"
+                        aria-label="More options"
                       >
                         <MoreHorizontal className="h-3 w-3" />
                       </Button>

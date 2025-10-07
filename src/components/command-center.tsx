@@ -12,7 +12,8 @@ import {
   MessageCircle, 
   Sun, 
   Moon,
-  Mail
+  Mail,
+  Settings
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "next-themes";
@@ -28,6 +29,7 @@ const MENU_ITEMS = [
   { id: "voice", icon: Mic, label: "Voice", path: "/concierge?mode=voice" },
   { id: "contact", icon: Mail, label: "Contact", action: "toggle-contact" },
   { id: "user", icon: User, label: "User", path: "/account" },
+  { id: "admin", icon: Settings, label: "Admin", path: "/admin" },
 ];
 
 export function CommandCenter() {
@@ -41,9 +43,12 @@ export function CommandCenter() {
 
   useEffect(() => {
     setIsClient(true);
-  }, []);
+    
+    // Close command center when route changes
+    setIsOpen(false);
+  }, [location]);
 
-  // Show command center on all routes
+  // Show command center on all routes except fullscreen
   const isFullScreenRoute = location.pathname === "/fullscreen";
   
   if (isFullScreenRoute) {
@@ -91,6 +96,7 @@ export function CommandCenter() {
           className="w-16 h-16 rounded-full shadow-lg bg-primary hover:bg-primary/90 transition-all duration-300"
           onClick={() => setIsOpen(!isOpen)}
           aria-label="Open command center"
+          aria-expanded={isOpen}
         >
           <div className="w-8 h-8 rounded-full bg-background/20 flex items-center justify-center">
             <div className="w-2 h-2 rounded-full bg-background"></div>
@@ -106,6 +112,7 @@ export function CommandCenter() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setIsOpen(false)}
+                aria-hidden="true"
               />
               
               <motion.div
@@ -114,6 +121,8 @@ export function CommandCenter() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                role="menu"
+                aria-label="Command center menu"
               >
                 <div className="relative">
                   <div className="absolute inset-0 bg-background/80 backdrop-blur-xl rounded-2xl shadow-xl w-80 h-40" />

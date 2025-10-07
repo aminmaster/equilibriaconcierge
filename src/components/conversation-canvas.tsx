@@ -27,11 +27,17 @@ export function ConversationCanvas() {
             className="gap-1 h-7 text-xs px-2"
             onClick={() => setShowShareModal(true)}
             disabled={!currentConversation}
+            aria-label="Share conversation"
           >
             <Share className="h-3 w-3" />
             Share
           </Button>
-          <Button size="sm" variant="outline" className="gap-1 h-7 text-xs px-2">
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="gap-1 h-7 text-xs px-2"
+            aria-label="Export conversation"
+          >
             <Download className="h-3 w-3" />
             Export
           </Button>
@@ -47,6 +53,7 @@ export function ConversationCanvas() {
                   key={i} 
                   className="bg-primary rounded-sm"
                   style={{ opacity: 0.2 + (i * 0.1) }}
+                  aria-hidden="true"
                 />
               ))}
             </div>

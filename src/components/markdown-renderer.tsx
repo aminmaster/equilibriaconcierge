@@ -40,6 +40,16 @@ export const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
         // Customize lists
         ul: ({ node, ...props }) => <ul className="list-disc pl-5 space-y-1" {...props} />,
         ol: ({ node, ...props }) => <ol className="list-decimal pl-5 space-y-1" {...props} />,
+        // Customize links
+        a: ({ node, ...props }) => <a className="text-primary hover:underline" {...props} />,
+        // Customize tables
+        table: ({ node, ...props }) => (
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-collapse" {...props} />
+          </div>
+        ),
+        th: ({ node, ...props }) => <th className="border p-2 text-left bg-muted" {...props} />,
+        td: ({ node, ...props }) => <td className="border p-2" {...props} />,
       }}
     >
       {content}

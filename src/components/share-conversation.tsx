@@ -32,23 +32,39 @@ export function ShareConversation({ open, onOpenChange, conversationId }: ShareC
   // In a real implementation, this would be a proper shareable URL
   const shareUrl = `${window.location.origin}/share/${conversationId}`;
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(shareUrl);
-    setCopied(true);
-    toast({
-      title: "Copied to clipboard",
-      description: "The conversation link has been copied to your clipboard.",
-    });
-    setTimeout(() => setCopied(false), 2000);
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      toast({
+        title: "Copied to clipboard",
+        description: "The conversation link has been copied to your clipboard.",
+      });
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      toast({
+        title: "Copy failed",
+        description: "Failed to copy the link. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const exportConversation = (format: "markdown" | "json") => {
-    // In a real implementation, this would export the actual conversation
-    toast({
-      title: "Export started",
-      description: `Your conversation is being exported as ${format.toUpperCase()}.`,
-    });
-    onOpenChange(false);
+  const exportConversation = async (format: "markdown" | "json") => {
+    try {
+      // In a real implementation, this would export the actual conversation
+      toast({
+        title: "Export started",
+        description: `Your conversation is being exported as ${format.toUpperCase()}.`,
+      });
+      onOpenChange(false);
+    } catch (err) {
+      toast({
+        title: "Export failed",
+        description: "Failed to export the conversation. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -63,17 +79,20 @@ export function ShareConversation({ open, onOpenChange, conversationId }: ShareC
         
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label>Share Link</Label>
+            <Label htmlFor="share-url">Share Link</Label>
             <div className="flex gap-2">
               <Input
+                id="share-url"
                 value={shareUrl}
                 readOnly
                 className="flex-1"
+                aria-label="Conversation share URL"
               />
               <Button
                 variant="outline"
                 size="icon"
                 onClick={copyToClipboard}
+                aria-label={copied ? "Link copied" : "Copy link to clipboard"}
               >
                 {copied ? (
                   <Copy className="h-4 w-4 text-green-500" />
@@ -91,6 +110,7 @@ export function ShareConversation({ open, onOpenChange, conversationId }: ShareC
                 variant="outline"
                 className="gap-2"
                 onClick={() => exportConversation("markdown")}
+                aria-label="Export as Markdown"
               >
                 <Download className="h-4 w-4" />
                 Markdown
@@ -99,6 +119,7 @@ export function ShareConversation({ open, onOpenChange, conversationId }: ShareC
                 variant="outline"
                 className="gap-2"
                 onClick={() => exportConversation("json")}
+                aria-label="Export as JSON"
               >
                 <Download className="h-4 w-4" />
                 JSON
@@ -108,7 +129,7 @@ export function ShareConversation({ open, onOpenChange, conversationId }: ShareC
         </div>
         
         <div className="flex justify-end">
-          <Button onClick={() => onOpenChange(false)}>
+          <Button onClick={() => onOpenChange(false)} aria-label="Close dialog">
             Close
           </Button>
         </div>
