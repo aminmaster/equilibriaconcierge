@@ -32,7 +32,10 @@ export function ConciergeInterface({ inputMode, setInputMode }: ConciergeInterfa
     if (!message.trim() || isLoading) return;
     
     try {
-      await streamMessage(message, () => {});
+      await streamMessage(message, (chunk) => {
+        // This callback handles streaming chunks
+        console.log("Received chunk:", chunk);
+      });
       setMessage("");
     } catch (err) {
       console.error("Error sending message:", err);
