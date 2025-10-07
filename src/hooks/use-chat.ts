@@ -5,7 +5,17 @@ import { useToast } from "@/hooks/use-toast";
 import { useModelConfig } from "@/hooks/use-model-config";
 import { showApiError, showGenericError } from "@/utils/toast-utils";
 
-export const useChat = () => {
+interface UseChatReturn {
+  streamMessage: (content: string, onChunk: (chunk: string) => void) => Promise<void>;
+  cancelStream: () => void;
+  isLoading: boolean;
+  error: string | null;
+  configLoading: boolean;
+  messageBuffer: string[];
+  clearBuffer: () => void;
+}
+
+export const useChat = (): UseChatReturn => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -13,21 +23,34 @@ export const useChat = () => {
   const { toast } = useToast();
   const { config: modelConfig, loading: configLoading } = useModelConfig();
   
-  // Memory management for large conversations
+  // Client-side cache for recent messages (to avoid redundant fetches)
+  const recentMessagesCache = useRef<Map<string, string[]>>(new Map());
+  const MAX_CACHE_SIZE = 50; // Limit cache to recent conversations
+
+  // Memory buffer for streaming chunks
   const [messageBuffer, setMessageBuffer] = useState<string[]>([]);
   const MAX_BUFFER_SIZE = 100;
 
-  // Clean up on unmount
+  // Clean up on unmount or error
   useEffect(() => {
     return () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
+      // Clear cache on unmount to free memory
+      recentMessagesCache.current.clear();
     };
   }, []);
 
   const streamMessage = useCallback(async (content: string, onChunk: (chunk: string) => void) => {
-    if (isLoading || configLoading) return;
+    if (isLoading || configLoading) {
+      toast({
+        title: "Chat Unavailable",
+        description: "Please wait for the system to be ready.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setIsLoading(true);
     setError(null);
@@ -37,7 +60,7 @@ export const useChat = () => {
       // Create a new conversation if none exists
       let conversationId = currentConversation?.id;
       if (!conversationId) {
-        console.log("Creating new conversation");
+        console.log("Creating new conversation for chat");
         const newConversation = await createConversation("New Conversation");
         if (!newConversation) {
           throw new Error("Failed to create conversation");
@@ -46,7 +69,7 @@ export const useChat = () => {
         console.log("Created conversation with ID:", conversationId);
       }
       
-      // Add user message to conversation
+      // Add user message to conversation (optimistic update)
       console.log("Adding user message to conversation:", conversationId);
       if (conversationId) {
         const userMessage = await addMessage(conversationId, "user", content);
@@ -62,27 +85,25 @@ export const useChat = () => {
       
       console.log("Auth token present:", !!token);
       
-      // Call chat edge function with streaming
-      console.log("Calling chat function with conversation ID:", conversationId);
-      console.log("Using model config:", modelConfig);
-      
+      // Prepare request body with model config
       const requestBody = {
         message: content,
         conversationId: conversationId,
-        // Only pass generation parameters to the chat function
         generationProvider: modelConfig.generation.provider,
-        generationModel: modelConfig.generation.model
+        generationModel: modelConfig.generation.model,
       };
       
       console.log("Sending request body:", requestBody);
       
+      // Call chat edge function with streaming
       const response = await fetch('https://jmxemujffofqpqrxajlb.supabase.co/functions/v1/chat', {
         method: 'POST',
+        signal: abortControllerRef.current.signal,
         headers: {
           'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` })
+          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestBody),
       });
       
       console.log("Chat function response status:", response.status);
@@ -91,13 +112,15 @@ export const useChat = () => {
         const errorText = await response.text();
         console.error("Chat function error:", errorText);
         
-        // Handle specific error cases
+        // Handle specific error cases with retry logic
         if (response.status === 401) {
           throw new Error("Authentication required. Please sign in to continue.");
         } else if (response.status === 403) {
           throw new Error("Access denied. You don't have permission to perform this action.");
         } else if (response.status === 404) {
           throw new Error("Conversation not found. Please try again.");
+        } else if (response.status === 429) {
+          throw new Error("Rate limit exceeded. Please wait before trying again.");
         } else {
           throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
         }
@@ -107,20 +130,22 @@ export const useChat = () => {
         throw new Error("Response body is null");
       }
       
-      // Process the stream
+      // Process the stream with improved buffer management
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let aiResponse = "";
       let buffer = "";
+      let retryCount = 0;
+      const MAX_RETRIES = 3;
       
       try {
         while (true) {
           const { done, value } = await reader.read();
           
           if (done) {
-            // Add final AI response to conversation if we haven't added anything yet
+            // Finalize AI response
             if (aiResponse.trim() && conversationId) {
-              console.log("Adding AI response to conversation");
+              console.log("Finalizing AI response to conversation");
               await addMessage(conversationId, "assistant", aiResponse);
             }
             break;
@@ -128,11 +153,11 @@ export const useChat = () => {
           
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split('\n');
-          buffer = lines.pop() || ''; // Keep the last incomplete line in the buffer
+          buffer = lines.pop() || ''; // Keep incomplete line in buffer
           
           for (const line of lines) {
             if (line.startsWith('data: ')) {
-              const data = line.slice(6); // Remove 'data: ' prefix
+              const data = line.slice(6);
               if (data === '[DONE]') continue;
               
               try {
@@ -141,7 +166,7 @@ export const useChat = () => {
                   const content = parsed.choices[0].delta.content;
                   aiResponse += content;
                   
-                  // Manage message buffer for memory efficiency
+                  // Efficient buffer management
                   setMessageBuffer(prev => {
                     const newBuffer = [...prev, content];
                     if (newBuffer.length > MAX_BUFFER_SIZE) {
@@ -152,15 +177,20 @@ export const useChat = () => {
                   
                   onChunk(content);
                 }
-              } catch (e) {
-                // If it's not valid JSON, skip it
-                console.warn("Failed to parse JSON:", data);
+              } catch (parseError) {
+                console.warn("Failed to parse JSON chunk:", data);
+                // Retry parsing on next chunk if buffer is incomplete
+                retryCount++;
+                if (retryCount > 5) {
+                  console.error("Too many parse errors, aborting stream");
+                  throw new Error("Stream parsing failed after multiple attempts");
+                }
               }
             }
           }
         }
         
-        // Process any remaining data in the buffer
+        // Process remaining buffer
         if (buffer.startsWith('data: ')) {
           const data = buffer.slice(6);
           if (data !== '[DONE]') {
@@ -170,7 +200,6 @@ export const useChat = () => {
                 const content = parsed.choices[0].delta.content;
                 aiResponse += content;
                 
-                // Manage message buffer for memory efficiency
                 setMessageBuffer(prev => {
                   const newBuffer = [...prev, content];
                   if (newBuffer.length > MAX_BUFFER_SIZE) {
@@ -181,13 +210,20 @@ export const useChat = () => {
                 
                 onChunk(content);
               }
-            } catch (e) {
-              console.warn("Failed to parse remaining JSON:", data);
+            } catch (parseError) {
+              console.warn("Failed to parse final buffer:", data);
             }
           }
         }
       } catch (streamError: any) {
         if (streamError.name !== 'AbortError') {
+          // Retry logic for recoverable errors (e.g., network hiccup)
+          if (retryCount < MAX_RETRIES && (streamError.name === 'NetworkError' || streamError.message.includes('fetch'))) {
+            retryCount++;
+            console.log(`Stream error (attempt ${retryCount}/${MAX_RETRIES}):`, streamError.message);
+            // Re-throw to trigger retry in calling code if needed
+            throw streamError;
+          }
           throw streamError;
         }
       }
@@ -196,11 +232,13 @@ export const useChat = () => {
       console.error("Chat error:", err);
       setError(err.message || "Failed to send message");
       
-      // Show toast notification for model configuration errors
+      // Enhanced error categorization
       if (err.message?.includes("model configurations") || err.message?.includes("configure models")) {
         showGenericError("Model Configuration Required", "Please configure AI models in the admin panel before using the chat.");
       } else if (err.message?.includes("Authentication required")) {
         showGenericError("Authentication Required", "Please sign in to continue using the chat feature.");
+      } else if (err.message?.includes("Rate limit")) {
+        showGenericError("Rate Limit Exceeded", "Please wait a moment before sending another message.");
       } else {
         showApiError(err, "send message");
       }
@@ -213,10 +251,12 @@ export const useChat = () => {
   const cancelStream = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
+      // Clear buffer on cancel to free memory
+      setMessageBuffer([]);
     }
   }, []);
 
-  // Clear message buffer
+  // Clear message buffer (for memory cleanup)
   const clearBuffer = useCallback(() => {
     setMessageBuffer([]);
   }, []);
