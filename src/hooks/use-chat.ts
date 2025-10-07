@@ -11,10 +11,13 @@ export const useChat = () => {
   // Load model configuration
   const loadModelConfiguration = async () => {
     try {
+      console.log("Loading model configurations from database");
       const { data, error } = await supabase
         .from('model_configurations')
-        .select('*')
-        .in('type', ['generation', 'embedding']);
+        .select('*');
+      
+      console.log("Model configurations data:", data);
+      console.log("Model configurations error:", error);
       
       if (error) throw error;
       
