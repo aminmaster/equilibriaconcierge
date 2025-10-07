@@ -49,33 +49,34 @@ export function GenerationConfigSection({
   const loadModelConfigurations = async () => {
     try {
       console.log("Loading generation model configurations");
-      // Load generation config
+      // Load generation config - handle multiple rows properly
       const { data: generationData, error: generationError } = await supabase
         .from('model_configurations')
         .select('*')
-        .eq('type', 'generation')
-        .single();
+        .eq('type', 'generation');
       
       console.log("Generation config data:", generationData);
       console.log("Generation config error:", generationError);
       
-      if (!generationError && generationData) {
-        const defaultModels = defaultProviderModels[generationData.provider as keyof typeof defaultProviderModels] || 
+      if (!generationError && generationData && generationData.length > 0) {
+        // Use the first row if multiple exist
+        const config = generationData[0];
+        const defaultModels = defaultProviderModels[config.provider as keyof typeof defaultProviderModels] || 
                              defaultProviderModels.openrouter || [];
         
         const newConfig = {
-          provider: generationData.provider || "openrouter",
-          model: generationData.model || (defaultModels[0] || ""),
-          temperature: generationData.temperature !== null ? generationData.temperature : 0.7,
-          maxTokens: generationData.max_tokens || 2048,
+          provider: config.provider || "openrouter",
+          model: config.model || (defaultModels[0] || ""),
+          temperature: config.temperature !== null ? config.temperature : 0.7,
+          maxTokens: config.max_tokens || 2048,
         };
         
         console.log("Setting generation config:", newConfig);
         setGenerationConfig(newConfig);
         
         // Load models for the saved provider
-        if (generationData.provider) {
-          await loadGenerationModelsForProvider(generationData.provider);
+        if (config.provider) {
+          await loadGenerationModelsForProvider(config.provider);
         }
       } else if (generationError) {
         console.log("No generation config found, using defaults");

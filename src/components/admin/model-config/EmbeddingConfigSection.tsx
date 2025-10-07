@@ -44,7 +44,7 @@ export function EmbeddingConfigSection({
   useEffect(() => {
     // Get dimensions for current model
     const selectedModel = embeddingModels.find(m => m.model === embeddingConfig.model);
-    const dimensions = selectedModel ? selectedModel.dimensions : 1536;
+    const dimensions = selectedModel ? selectedModel.dimensions : 3072; // Default to 3072 if not found
     
     onConfigChange({
       ...embeddingConfig,
@@ -56,32 +56,33 @@ export function EmbeddingConfigSection({
   const loadModelConfigurations = async () => {
     try {
       console.log("Loading embedding model configurations");
-      // Load embedding config
+      // Load embedding config - handle multiple rows properly
       const { data: embeddingData, error: embeddingError } = await supabase
         .from('model_configurations')
         .select('*')
-        .eq('type', 'embedding')
-        .single();
+        .eq('type', 'embedding');
       
       console.log("Embedding config data:", embeddingData);
       console.log("Embedding config error:", embeddingError);
       
-      if (!embeddingError && embeddingData) {
-        const defaultModels = defaultEmbeddingModels[embeddingData.provider as keyof typeof defaultEmbeddingModels] || 
+      if (!embeddingError && embeddingData && embeddingData.length > 0) {
+        // Use the first row if multiple exist
+        const config = embeddingData[0];
+        const defaultModels = defaultEmbeddingModels[config.provider as keyof typeof defaultEmbeddingModels] || 
                              defaultEmbeddingModels.openai || [];
         const defaultModel = defaultModels.length > 0 ? defaultModels[0] : { model: "text-embedding-3-large", dimensions: 3072 };
         
         const newConfig = {
-          provider: embeddingData.provider || "openai",
-          model: embeddingData.model || defaultModel.model,
+          provider: config.provider || "openai",
+          model: config.model || defaultModel.model,
         };
         
         console.log("Setting embedding config:", newConfig);
         setEmbeddingConfig(newConfig);
         
         // Load models for the saved provider ONLY if providers are available
-        if (embeddingData.provider && availableProviders.length > 0) {
-          await loadEmbeddingModelsForProvider(embeddingData.provider);
+        if (config.provider && availableProviders.length > 0) {
+          await loadEmbeddingModelsForProvider(config.provider);
         } else {
           // If no providers available, clear the models list
           setEmbeddingModels([]);
@@ -231,7 +232,7 @@ export function EmbeddingConfigSection({
   // Get dimensions for the currently selected model
   const getCurrentModelDimensions = () => {
     const selectedModel = embeddingModels.find(m => m.model === embeddingConfig.model);
-    return selectedModel ? selectedModel.dimensions : 0; // Return 0 if no model found
+    return selectedModel ? selectedModel.dimensions : 3072; // Return 3072 as default if no model found
   };
 
   console.log("Rendering EmbeddingConfigSection");
@@ -323,7 +324,7 @@ export function EmbeddingConfigSection({
             <Label>Dimensions</Label>
             <Input
               type="number"
-              value={getCurrentModelDimensions() || ""}
+              value={getCurrentModelDimensions()}
               disabled
             />
             <p className="text-sm text-muted-foreground">
