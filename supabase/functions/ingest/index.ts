@@ -252,20 +252,25 @@ async function processDocumentContent(supabaseClient: any, sourceId: string, con
     .eq('type', 'embedding')
     .single()
   
-  const embeddingModel = modelConfig?.model || 'text-embedding-3-large'
-  const embeddingDimensions = modelConfig?.dimensions || 3072
+  let effectiveEmbeddingProvider = 'openai'
+  let effectiveEmbeddingModel = 'text-embedding-3-large'
   
-  console.log("Using embedding model:", embeddingModel, "with dimensions:", embeddingDimensions)
+  if (!modelError && modelConfig) {
+    effectiveEmbeddingProvider = modelConfig.provider || 'openai'
+    effectiveEmbeddingModel = modelConfig.model || 'text-embedding-3-large'
+  }
   
-  // Get API key for OpenAI
+  console.log("Using embedding provider:", effectiveEmbeddingProvider, "model:", effectiveEmbeddingModel)
+  
+  // Get API key for the effective embedding provider
   const { data: apiKeyData, error: apiKeyError } = await supabaseClient
     .from('api_keys')
     .select('api_key')
-    .eq('provider', 'openai')
+    .eq('provider', effectiveEmbeddingProvider)
     .single()
   
   if (apiKeyError || !apiKeyData) {
-    throw new Error('OpenAI API key not configured for embeddings')
+    throw new Error(`${effectiveEmbeddingProvider} API key not configured for embeddings`)
   }
   
   // Decrypt the API key
@@ -288,27 +293,79 @@ async function processDocumentContent(supabaseClient: any, sourceId: string, con
     console.log("Processing chunk", i, "length:", chunk.length)
     
     try {
-      // Generate embedding using OpenAI
-      const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${decryptedApiKey}`,
-          'Content-Type': 'application/json',
-          'User-Agent': 'Conversational AI Platform'
-        },
-        body: JSON.stringify({
-          input: chunk,
-          model: embeddingModel
+      // Generate embedding using the configured provider
+      let embeddingResponse
+      if (effectiveEmbeddingProvider === 'openai') {
+        embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${decryptedApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            input: chunk,
+            model: effectiveEmbeddingModel
+          })
         })
-      })
+      } else if (effectiveEmbeddingProvider === 'openrouter') {
+        embeddingResponse = await fetch('https://openrouter.ai/api/v1/embeddings', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${decryptedApiKey}`,
+            'HTTP-Referer': Deno.env.get('SUPABASE_URL') || 'https://your-app.com',
+            'X-Title': 'Conversational AI Platform',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            input: chunk,
+            model: effectiveEmbeddingModel
+          })
+        })
+      } else if (effectiveEmbeddingProvider === 'cohere') {
+        // Cohere uses 'texts' array instead of 'input'
+        embeddingResponse = await fetch('https://api.cohere.ai/v1/embed', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${decryptedApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            texts: [chunk],  // Cohere expects array
+            model: effectiveEmbeddingModel,
+            input_type: 'search_document'  // Or 'search_query' depending on use case
+          })
+        })
+      } else {
+        // Fallback to OpenAI if unsupported provider
+        console.warn(`Unsupported embedding provider: ${effectiveEmbeddingProvider}, falling back to OpenAI`);
+        embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${decryptedApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            input: chunk,
+            model: effectiveEmbeddingModel
+          })
+        })
+      }
       
       if (!embeddingResponse.ok) {
         const errorText = await embeddingResponse.text()
         throw new Error(`Failed to generate embedding: ${embeddingResponse.statusText} - ${errorText}`)
       }
       
-      const embeddingData = await embeddingResponse.json()
-      const embedding = embeddingData.data[0].embedding
+      let embedding
+      if (effectiveEmbeddingProvider === 'cohere') {
+        // Cohere response format differs
+        const embeddingData = await embeddingResponse.json()
+        embedding = embeddingData.embeddings[0]
+      } else {
+        // OpenAI/OpenRouter format
+        const embeddingData = await embeddingResponse.json()
+        embedding = embeddingData.data[0].embedding
+      }
       
       // Store the document chunk with its embedding
       const { error: docError } = await supabaseClient
