@@ -167,6 +167,16 @@ export function EmbeddingConfigSection({
     if (embeddingModels.length > 0) {
       console.log("Setting OpenAI embedding models:", embeddingModels);
       setEmbeddingModels(embeddingModels);
+      
+      // Update the current config with the first model's dimensions if it matches
+      const firstModel = embeddingModels[0];
+      if (embeddingConfig.model === firstModel.model || 
+          (embeddingConfig.model === "text-embedding-3-large" && firstModel.model.includes("text-embedding-3-large"))) {
+        setEmbeddingConfig(prev => ({
+          ...prev,
+          dimensions: firstModel.dimensions
+        }));
+      }
     } else {
       console.log("No embedding models found, using defaults");
       setEmbeddingModels(defaultEmbeddingModels.openai || []);
