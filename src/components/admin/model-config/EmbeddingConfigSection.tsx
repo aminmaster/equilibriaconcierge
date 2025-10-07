@@ -18,7 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 interface EmbeddingConfigSectionProps {
   availableProviders: string[];
   loadingProviders: boolean;
-  defaultEmbeddingModels: Record<string, Array<{model: string, dimensions: number}>>;
+  defaultEmbeddingModels: Record<string, Array<{model: string, dimensions: number}>>
   onConfigChange: (config: any) => void;
 }
 
@@ -61,7 +61,6 @@ export function EmbeddingConfigSection({
   const loadModelConfigurations = async () => {
     try {
       console.log("Loading embedding model configurations");
-      // Load embedding config - handle multiple rows properly
       const { data: embeddingData, error: embeddingError } = await supabase
         .from('model_configurations')
         .select('*')
@@ -101,6 +100,17 @@ export function EmbeddingConfigSection({
       }
     } catch (error: any) {
       console.error("Error loading model configurations:", error);
+      toast({
+        title: "Failed to Load Configuration",
+        description: "Using default embedding settings.",
+        variant: "destructive",
+      });
+      // Fallback to defaults
+      setEmbeddingConfig({
+        provider: "openai",
+        model: "text-embedding-3-large",
+      });
+      setEmbeddingModels(defaultEmbeddingModels.openai || []);
     }
   };
 
@@ -123,6 +133,11 @@ export function EmbeddingConfigSection({
       }
     } catch (error: any) {
       console.error(`Error loading embedding models for ${provider}:`, error);
+      toast({
+        title: "Failed to Load Models",
+        description: `Could not fetch embedding models for ${provider}. Using defaults.`,
+        variant: "destructive",
+      });
       setEmbeddingModels(
         defaultEmbeddingModels[provider as keyof typeof defaultEmbeddingModels] || 
         defaultEmbeddingModels.openai || []

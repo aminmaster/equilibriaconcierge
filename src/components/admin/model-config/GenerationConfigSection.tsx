@@ -49,7 +49,6 @@ export function GenerationConfigSection({
   const loadModelConfigurations = async () => {
     try {
       console.log("Loading generation model configurations");
-      // Load generation config - handle multiple rows properly
       const { data: generationData, error: generationError } = await supabase
         .from('model_configurations')
         .select('*')
@@ -90,6 +89,20 @@ export function GenerationConfigSection({
       }
     } catch (error: any) {
       console.error("Error loading model configurations:", error);
+      toast({
+        title: "Failed to Load Configuration",
+        description: "Using default generation settings.",
+        variant: "destructive",
+      });
+      // Fallback to defaults
+      const defaultModels = defaultProviderModels.openrouter || [];
+      setGenerationModels(defaultModels);
+      setGenerationConfig({
+        provider: "openrouter",
+        model: defaultModels[0] || "",
+        temperature: 0.7,
+        maxTokens: 2048,
+      });
     }
   };
 
@@ -118,6 +131,11 @@ export function GenerationConfigSection({
       }
     } catch (error: any) {
       console.error(`Error loading generation models for ${provider}:`, error);
+      toast({
+        title: "Failed to Load Models",
+        description: `Could not fetch models for ${provider}. Using defaults.`,
+        variant: "destructive",
+      });
       setGenerationModels(
         defaultProviderModels[provider as keyof typeof defaultProviderModels] || 
         defaultProviderModels.openrouter || []
