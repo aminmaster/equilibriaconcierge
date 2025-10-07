@@ -293,7 +293,7 @@ async function processDocumentContent(supabaseClient: any, sourceId: string, con
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${decryptedApiKey}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
           'User-Agent': 'Conversational AI Platform'
         },
         body: JSON.stringify({
