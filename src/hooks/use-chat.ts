@@ -76,7 +76,17 @@ export const useChat = () => {
       if (!response.ok) {
         const errorText = await response.text();
         console.error("Chat function error:", errorText);
-        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+        
+        // Handle specific error cases
+        if (response.status === 401) {
+          throw new Error("Authentication required. Please sign in to continue.");
+        } else if (response.status === 403) {
+          throw new Error("Access denied. You don't have permission to perform this action.");
+        } else if (response.status === 404) {
+          throw new Error("Conversation not found. Please try again.");
+        } else {
+          throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+        }
       }
       
       if (!response.body) {
@@ -157,6 +167,18 @@ export const useChat = () => {
         toast({
           title: "Model Configuration Required",
           description: "Please configure AI models in the admin panel before using the chat.",
+          variant: "destructive" as const
+        });
+      } else if (err.message?.includes("Authentication required")) {
+        toast({
+          title: "Authentication Required",
+          description: "Please sign in to continue using the chat feature.",
+          variant: "destructive" as const
+        });
+      } else {
+        toast({
+          title: "Chat Error",
+          description: err.message || "Failed to send message. Please try again.",
           variant: "destructive" as const
         });
       }

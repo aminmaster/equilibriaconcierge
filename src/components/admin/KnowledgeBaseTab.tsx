@@ -52,15 +52,33 @@ export function KnowledgeBaseTab() {
   // Load knowledge sources
   const loadKnowledgeSources = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('knowledge_sources')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    if (!error && data) {
-      setSources(data);
+    try {
+      const { data, error } = await supabase
+        .from('knowledge_sources')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error("Database error:", error);
+        toast({
+          title: "Failed to Load Knowledge Sources",
+          description: error.message || "Could not fetch knowledge sources.",
+          variant: "destructive",
+        });
+        setSources([]);
+      } else if (data) {
+        setSources(data);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Failed to Load Knowledge Sources",
+        description: error.message || "Could not fetch knowledge sources.",
+        variant: "destructive",
+      });
+      setSources([]);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   // Load sources on component mount
@@ -96,44 +114,44 @@ export function KnowledgeBaseTab() {
         .select()
         .single();
       
-      if (error) throw error;
-      
-      toast({
-        title: "Ingestion started",
-        description: "Your knowledge base is being processed. This may take a few minutes.",
-      });
-      
-      // Add to the list immediately
-      if (data) {
+      if (error) {
+        throw new Error(error.message);
+      } else if (data) {
+        toast({
+          title: "Ingestion started",
+          description: "Your knowledge base is being processed. This may take a few minutes.",
+        });
+        
+        // Add to the list immediately
         setSources([data, ...sources]);
+        
+        // Call the ingest function
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        
+        const projectId = "jmxemujffofqpqrxajlb";
+        const functionUrl = `https://${projectId}.supabase.co/functions/v1/ingest`;
+        
+        const response = await fetch(functionUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` })
+          },
+          body: JSON.stringify({
+            sourceId: data.id
+          })
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Ingestion failed: ${response.statusText} - ${errorText}`);
+        }
+        
+        // Reset form
+        setFile(null);
+        setUrl("");
       }
-      
-      // Call the ingest function
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      
-      const projectId = "jmxemujffofqpqrxajlb";
-      const functionUrl = `https://${projectId}.supabase.co/functions/v1/ingest`;
-      
-      const response = await fetch(functionUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` })
-        },
-        body: JSON.stringify({
-          sourceId: data.id
-        })
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Ingestion failed: ${response.statusText} - ${errorText}`);
-      }
-      
-      // Reset form
-      setFile(null);
-      setUrl("");
     } catch (error: any) {
       console.error("Ingestion error:", error);
       toast({
@@ -152,21 +170,23 @@ export function KnowledgeBaseTab() {
         .delete()
         .eq('id', id);
       
-      if (error) throw error;
-      
-      // Also delete associated documents
-      await supabase
-        .from('documents')
-        .delete()
-        .eq('source_id', id);
-      
-      // Update the UI
-      setSources(sources.filter(source => source.id !== id));
-      
-      toast({
-        title: "Source deleted",
-        description: "The knowledge source has been removed.",
-      });
+      if (error) {
+        throw new Error(error.message);
+      } else {
+        // Also delete associated documents
+        await supabase
+          .from('documents')
+          .delete()
+          .eq('source_id', id);
+        
+        // Update the UI
+        setSources(sources.filter(source => source.id !== id));
+        
+        toast({
+          title: "Source deleted",
+          description: "The knowledge source has been removed.",
+        });
+      }
     } catch (error: any) {
       toast({
         title: "Deletion failed",
@@ -183,22 +203,26 @@ export function KnowledgeBaseTab() {
         .from('knowledge_sources')
         .delete();
       
-      if (sourcesError) throw sourcesError;
-      
-      // Delete all documents
-      const { error: documentsError } = await supabase
-        .from('documents')
-        .delete();
-      
-      if (documentsError) throw documentsError;
-      
-      // Update the UI
-      setSources([]);
-      
-      toast({
-        title: "All sources deleted",
-        description: "All knowledge sources and documents have been removed.",
-      });
+      if (sourcesError) {
+        throw new Error(sourcesError.message);
+      } else {
+        // Delete all documents
+        const { error: documentsError } = await supabase
+          .from('documents')
+          .delete();
+        
+        if (documentsError) {
+          throw new Error(documentsError.message);
+        } else {
+          // Update the UI
+          setSources([]);
+          
+          toast({
+            title: "All sources deleted",
+            description: "All knowledge sources and documents have been removed.",
+          });
+        }
+      }
     } catch (error: any) {
       toast({
         title: "Deletion failed",
@@ -288,7 +312,7 @@ export function KnowledgeBaseTab() {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={loadKnowledgeSources}
+                onClick={() => loadKnowledgeSources()}
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh

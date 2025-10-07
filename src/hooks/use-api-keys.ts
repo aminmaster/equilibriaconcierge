@@ -23,9 +23,10 @@ export const useApiKeys = () => {
         .select('*')
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
-      
-      if (data) {
+      if (error) {
+        console.error("Error loading API keys:", error);
+        setApiKeys([]);
+      } else if (data) {
         setApiKeys(data);
       }
     } catch (error: any) {
@@ -47,9 +48,9 @@ export const useApiKeys = () => {
         .insert([{ provider, api_key: key }])
         .select();
       
-      if (error) throw error;
-      
-      if (data && data.length > 0) {
+      if (error) {
+        throw new Error(error.message);
+      } else if (data && data.length > 0) {
         setApiKeys([data[0], ...apiKeys]);
         toast({
           title: "API Key Added",
@@ -74,13 +75,15 @@ export const useApiKeys = () => {
         .delete()
         .eq('id', id);
       
-      if (error) throw error;
-      
-      setApiKeys(apiKeys.filter(key => key.id !== id));
-      toast({
-        title: "API Key Deleted",
-        description: `Successfully deleted API key for ${provider}.`,
-      });
+      if (error) {
+        throw new Error(error.message);
+      } else {
+        setApiKeys(apiKeys.filter(key => key.id !== id));
+        toast({
+          title: "API Key Deleted",
+          description: `Successfully deleted API key for ${provider}.`,
+        });
+      }
     } catch (error: any) {
       toast({
         title: "Failed to Delete API Key",

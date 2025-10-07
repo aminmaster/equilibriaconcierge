@@ -42,7 +42,10 @@ export const useConversations = () => {
         
         const { data, error } = await query;
         
-        if (!error && data) {
+        if (error) {
+          console.error("Error loading conversations:", error);
+          setConversations([]);
+        } else if (data) {
           const sortedConversations = data.map((conv: any) => ({
             ...conv,
             messages: conv.messages ? conv.messages.sort((a: any, b: any) => 
@@ -59,6 +62,7 @@ export const useConversations = () => {
         }
       } catch (error) {
         console.error("Error loading conversations:", error);
+        setConversations([]);
       } finally {
         setLoading(false);
       }
@@ -100,13 +104,13 @@ export const useConversations = () => {
         `)
         .single();
       
-      if (!error && data) {
+      if (error) {
+        throw new Error(error.message);
+      } else if (data) {
         const newConversation = { ...data, messages: [] };
         setConversations(prev => [newConversation, ...prev]);
         setCurrentConversation(newConversation);
         return newConversation;
-      } else if (error) {
-        throw new Error(error.message);
       }
     } catch (error: any) {
       console.error("Error creating conversation:", error);
@@ -125,7 +129,9 @@ export const useConversations = () => {
         .select()
         .single();
       
-      if (!error && data) {
+      if (error) {
+        throw new Error(error.message);
+      } else if (data) {
         // Update the conversation in state immediately
         setConversations(prev => 
           prev.map(conv => {
@@ -155,8 +161,6 @@ export const useConversations = () => {
         }
         
         return data;
-      } else if (error) {
-        throw new Error(error.message);
       }
     } catch (error: any) {
       console.error("Error adding message:", error);

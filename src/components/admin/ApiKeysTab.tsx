@@ -58,7 +58,15 @@ export function ApiKeysTab() {
         .select('id, provider, created_at')
         .order('created_at', { ascending: false });
       
-      if (!error && data) {
+      if (error) {
+        console.error("Database error:", error);
+        toast({
+          title: "Failed to Load API Keys",
+          description: error.message || "Could not fetch API keys.",
+          variant: "destructive",
+        });
+        setApiKeys([]);
+      } else if (data) {
         setApiKeys(data);
         
         // Update provider status
@@ -74,6 +82,7 @@ export function ApiKeysTab() {
         description: error.message || "Could not fetch API keys.",
         variant: "destructive",
       });
+      setApiKeys([]);
     } finally {
       setLoading(false);
     }
@@ -98,9 +107,9 @@ export function ApiKeysTab() {
         }])
         .select('id, provider, created_at');
       
-      if (error) throw error;
-      
-      if (data && data.length > 0) {
+      if (error) {
+        throw new Error(error.message);
+      } else if (data && data.length > 0) {
         setApiKeys([data[0], ...apiKeys]);
         setNewApiKey({ provider: "", key: "" });
         setProviderStatus({ ...providerStatus, [newApiKey.provider]: true });
@@ -126,15 +135,17 @@ export function ApiKeysTab() {
         .delete()
         .eq('id', id);
       
-      if (error) throw error;
-      
-      setApiKeys(apiKeys.filter(key => key.id !== id));
-      setProviderStatus({ ...providerStatus, [provider]: false });
-      
-      toast({
-        title: "API Key Deleted",
-        description: `Successfully deleted API key for ${provider}.`,
-      });
+      if (error) {
+        throw new Error(error.message);
+      } else {
+        setApiKeys(apiKeys.filter(key => key.id !== id));
+        setProviderStatus({ ...providerStatus, [provider]: false });
+        
+        toast({
+          title: "API Key Deleted",
+          description: `Successfully deleted API key for ${provider}.`,
+        });
+      }
     } catch (error: any) {
       toast({
         title: "Failed to Delete API Key",
