@@ -29,14 +29,12 @@ export function GenerationConfigSection({
   // Generation config
   const [generationConfig, setGenerationConfig] = useState({
     provider: "openrouter",
-    model: "openai/gpt-4o",
+    model: "",
     temperature: 0.7,
     maxTokens: 2048,
   });
   
-  const [generationModels, setGenerationModels] = useState<string[]>(
-    defaultProviderModels.openrouter || []
-  );
+  const [generationModels, setGenerationModels] = useState<string[]>([]);
   const [loadingGenerationModels, setLoadingGenerationModels] = useState(false);
   const { toast } = useToast();
 
@@ -60,7 +58,7 @@ export function GenerationConfigSection({
         
         const newConfig = {
           provider: generationData.provider || "openrouter",
-          model: generationData.model || (defaultModels[0] || "openai/gpt-4o"),
+          model: generationData.model || (defaultModels[0] || ""),
           temperature: generationData.temperature !== null ? generationData.temperature : 0.7,
           maxTokens: generationData.max_tokens || 2048,
         };
@@ -74,6 +72,13 @@ export function GenerationConfigSection({
         }
       } else if (generationError) {
         console.log("No generation config found, using defaults");
+        // Set default provider models
+        const defaultModels = defaultProviderModels.openrouter || [];
+        setGenerationModels(defaultModels);
+        setGenerationConfig(prev => ({
+          ...prev,
+          model: defaultModels[0] || ""
+        }));
       }
     } catch (error: any) {
       console.error("Error loading model configurations:", error);
@@ -296,7 +301,7 @@ export function GenerationConfigSection({
           <Select 
             value={generationConfig.model} 
             onValueChange={(value) => setGenerationConfig({...generationConfig, model: value})}
-            disabled={loadingGenerationModels || loadingProviders || availableProviders.length === 0}
+            disabled={loadingGenerationModels || loadingProviders || availableProviders.length === 0 || generationModels.length === 0}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select generation model" />
