@@ -19,12 +19,14 @@ interface GenerationConfigSectionProps {
   availableProviders: string[];
   loadingProviders: boolean;
   defaultProviderModels: Record<string, string[]>;
+  onConfigChange: (config: any) => void;
 }
 
 export function GenerationConfigSection({ 
   availableProviders, 
   loadingProviders,
-  defaultProviderModels
+  defaultProviderModels,
+  onConfigChange
 }: GenerationConfigSectionProps) {
   // Generation config
   const [generationConfig, setGenerationConfig] = useState({
@@ -37,6 +39,11 @@ export function GenerationConfigSection({
   const [generationModels, setGenerationModels] = useState<string[]>([]);
   const [loadingGenerationModels, setLoadingGenerationModels] = useState(false);
   const { toast } = useToast();
+
+  // Notify parent of config changes
+  useEffect(() => {
+    onConfigChange(generationConfig);
+  }, [generationConfig, onConfigChange]);
 
   // Load model configurations from database
   const loadModelConfigurations = async () => {
