@@ -15,9 +15,12 @@ import {
   Copy, 
   Share2, 
   Download,
-  Link as LinkIcon
+  Link as LinkIcon,
+  FileText,
+  FileJson
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useConversations } from "@/hooks/use-conversations";
 
 interface ShareConversationProps {
   open: boolean;
@@ -27,6 +30,7 @@ interface ShareConversationProps {
 
 export function ShareConversation({ open, onOpenChange, conversationId }: ShareConversationProps) {
   const { toast } = useToast();
+  const { exportConversation } = useConversations();
   const [copied, setCopied] = useState(false);
   
   // In a real implementation, this would be a proper shareable URL
@@ -50,12 +54,22 @@ export function ShareConversation({ open, onOpenChange, conversationId }: ShareC
     }
   };
 
-  const exportConversation = async (format: "markdown" | "json") => {
+  const exportConversationToFile = async (format: "markdown" | "json") => {
     try {
-      // In a real implementation, this would export the actual conversation
+      const content = await exportConversation(conversationId, format);
+      const blob = new Blob([content], { type: format === "json" ? "application/json" : "text/markdown" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `conversation.${format === "json" ? "json" : "md"}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
       toast({
-        title: "Export started",
-        description: `Your conversation is being exported as ${format.toUpperCase()}.`,
+        title: "Export completed",
+        description: `Your conversation has been exported as ${format.toUpperCase()}.`,
       });
       onOpenChange(false);
     } catch (err) {
@@ -109,19 +123,19 @@ export function ShareConversation({ open, onOpenChange, conversationId }: ShareC
               <Button
                 variant="outline"
                 className="gap-2"
-                onClick={() => exportConversation("markdown")}
+                onClick={() => exportConversationToFile("markdown")}
                 aria-label="Export as Markdown"
               >
-                <Download className="h-4 w-4" />
+                <FileText className="h-4 w-4" />
                 Markdown
               </Button>
               <Button
                 variant="outline"
                 className="gap-2"
-                onClick={() => exportConversation("json")}
+                onClick={() => exportConversationToFile("json")}
                 aria-label="Export as JSON"
               >
-                <Download className="h-4 w-4" />
+                <FileJson className="h-4 w-4" />
                 JSON
               </Button>
             </div>

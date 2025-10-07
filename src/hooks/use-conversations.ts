@@ -272,6 +272,167 @@ export const useConversations = () => {
     }
   };
 
+  // Branch a conversation (create a new conversation based on existing one)
+  const branchConversation = async (conversationId: string, messageIndex: number) => {
+    try {
+      // Get the original conversation
+      const originalConversation = conversations.find(conv => conv.id === conversationId);
+      if (!originalConversation) {
+        throw new Error("Conversation not found");
+      }
+      
+      // Create a new conversation with messages up to the specified index
+      const branchedMessages = originalConversation.messages.slice(0, messageIndex + 1);
+      
+      // Create new conversation
+      const { data, error } = await supabase
+        .from('conversations')
+        .insert([{
+          title: `${originalConversation.title} (Branch)`,
+          user_id: user?.id,
+          session_id: sessionId && isAnonymous ? sessionId : null
+        }])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      // Add branched messages to the new conversation
+      for (const message of branchedMessages) {
+        await supabase
+          .from('messages')
+          .insert([{
+            conversation_id: data.id,
+            role: message.role,
+            content: message.content
+          }]);
+      }
+      
+      // Load the new conversation with its messages
+      const { data: newConversationData, error: newConversationError } = await supabase
+        .from('conversations')
+        .select(`
+          id, 
+          title, 
+          created_at, 
+          updated_at,
+          messages (id, role, content, created_at)
+        `)
+        .eq('id', data.id)
+        .single();
+      
+      if (newConversationError) throw newConversationError;
+      
+      const newConversation = {
+        ...newConversationData,
+        messages: newConversationData.messages ? newConversationData.messages.sort((a: any, b: any) => 
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        ) : []
+      };
+      
+      // Add to conversations list
+      setConversations(prev => [newConversation, ...prev]);
+      setCurrentConversation(newConversation);
+      
+      // Update cache
+      apiCache.set(CONVERSATIONS_CACHE_KEY, [newConversation, ...conversations]);
+      
+      return newConversation;
+    } catch (error: any) {
+      console.error("Error branching conversation:", error);
+      throw error;
+    }
+  };
+
+  // Edit a message in a conversation
+  const editMessage = async (messageId: string, newContent: string) => {
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .update({ 
+          content: newContent,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', messageId);
+      
+      if (error) throw error;
+      
+      // Update in state
+      setConversations(prev => 
+        prev.map(conv => ({
+          ...conv,
+          messages: conv.messages.map(msg => 
+            msg.id === messageId 
+              ? { ...msg, content: newContent, updated_at: new Date().toISOString() } 
+              : msg
+          )
+        }))
+      );
+      
+      if (currentConversation) {
+        setCurrentConversation(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            messages: prev.messages.map(msg => 
+              msg.id === messageId 
+                ? { ...msg, content: newContent, updated_at: new Date().toISOString() } 
+                : msg
+            )
+          };
+        });
+      }
+      
+      // Update cache
+      apiCache.set(CONVERSATIONS_CACHE_KEY, conversations);
+    } catch (error: any) {
+      console.error("Error editing message:", error);
+      throw error;
+    }
+  };
+
+  // Export conversation
+  const exportConversation = async (conversationId: string, format: "json" | "markdown" = "json") => {
+    try {
+      // Get the conversation with all messages
+      const { data, error } = await supabase
+        .from('conversations')
+        .select(`
+          id, 
+          title, 
+          created_at, 
+          updated_at,
+          messages (id, role, content, created_at)
+        `)
+        .eq('id', conversationId)
+        .single();
+      
+      if (error) throw error;
+      
+      if (format === "json") {
+        // Return JSON format
+        return JSON.stringify(data, null, 2);
+      } else {
+        // Return Markdown format
+        let markdown = `# ${data.title}\n\n`;
+        markdown += `Created: ${new Date(data.created_at).toLocaleString()}\n\n`;
+        markdown += `---\n\n`;
+        
+        for (const message of data.messages) {
+          const role = message.role === "user" ? "User" : "Assistant";
+          markdown += `**${role}** (${new Date(message.created_at).toLocaleString()}):\n\n`;
+          markdown += `${message.content}\n\n`;
+          markdown += `---\n\n`;
+        }
+        
+        return markdown;
+      }
+    } catch (error: any) {
+      console.error("Error exporting conversation:", error);
+      throw error;
+    }
+  };
+
   // Load initial conversations
   useEffect(() => {
     if (user || (sessionId && isAnonymous)) {
@@ -292,6 +453,9 @@ export const useConversations = () => {
     createConversation,
     addMessage,
     updateConversationTitle,
-    deleteConversation
+    deleteConversation,
+    branchConversation,
+    editMessage,
+    exportConversation
   };
 };
