@@ -7,6 +7,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// ===== MODULE: CONFIGURATION =====
+const ENCRYPTION_KEY = Deno.env.get('ENCRYPTION_KEY') || 'your-secret-encryption-key-32-chars'
+const BATCH_SIZE = 5 // Process in batches to avoid rate limits
+const MAX_CHUNK_SIZE = 1000
+const OVERLAP_SIZE = 200
+
+// ===== MODULE: UTILITY FUNCTIONS =====
+
 // Simple decryption function (in production, use a proper encryption library)
 function decryptApiKey(encryptedKey: string, secretKey: string): string {
   try {
@@ -27,7 +35,7 @@ function decryptApiKey(encryptedKey: string, secretKey: string): string {
   }
 }
 
-// Input validation functions
+// ===== MODULE: VALIDATION =====
 function validateUUID(value: any): boolean {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   return typeof value === 'string' && uuidRegex.test(value)
@@ -37,7 +45,7 @@ function validateString(value: any, maxLength: number = 1000): boolean {
   return typeof value === 'string' && value.length > 0 && value.length <= maxLength
 }
 
-// Rate limiting using in-memory store (in production, use Redis)
+// ===== MODULE: RATE LIMITING =====
 const rateLimitStore = new Map<string, { count: number; timestamp: number }>()
 
 function isRateLimited(identifier: string, maxRequests: number = 5, windowMs: number = 60000): boolean {
@@ -61,9 +69,7 @@ function isRateLimited(identifier: string, maxRequests: number = 5, windowMs: nu
   return false
 }
 
-// TODO: Migrate to Redis for distributed rate limiting in production scaling
-
-// Fetch and extract content from URL with improved parsing
+// ===== MODULE: CONTENT FETCHING =====
 async function fetchUrlContent(url: string): Promise<string> {
   try {
     const response = await fetch(url);
@@ -117,8 +123,8 @@ async function fetchUrlContent(url: string): Promise<string> {
   }
 }
 
-// Enhanced semantic chunking with better overlap and edge case handling
-function splitIntoSemanticChunks(text: string, maxChunkSize: number = 1000, overlap: number = 200): string[] {
+// ===== MODULE: CHUNKING =====
+function splitIntoSemanticChunks(text: string, maxChunkSize: number = MAX_CHUNK_SIZE, overlap: number = OVERLAP_SIZE): string[] {
   if (!text || text.trim().length === 0) {
     return [];
   }
@@ -191,7 +197,7 @@ function splitIntoSemanticChunks(text: string, maxChunkSize: number = 1000, over
   return chunks;
 }
 
-// Optimized batch embedding generation with progress and error handling
+// ===== MODULE: EMBEDDING =====
 async function generateBatchEmbeddings(
   supabaseClient: any, 
   chunks: string[], 
@@ -200,7 +206,6 @@ async function generateBatchEmbeddings(
   apiKey: string,
   sourceId: string
 ): Promise<number[][]> {
-  const BATCH_SIZE = 5; // Process in batches to avoid rate limits
   const embeddings: number[][] = [];
   const totalBatches = Math.ceil(chunks.length / BATCH_SIZE);
 
@@ -289,6 +294,149 @@ async function generateBatchEmbeddings(
   return embeddings;
 }
 
+// ===== MODULE: DATABASE OPERATIONS =====
+async function updateSourceStatus(supabaseClient: any, sourceId: string, status: string, metadata?: any) {
+  const updateData = { 
+    status, 
+    updated_at: new Date().toISOString()
+  };
+  
+  if (metadata) {
+    updateData.metadata = metadata;
+  }
+  
+  const { error } = await supabaseClient
+    .from('knowledge_sources')
+    .update(updateData)
+    .eq('id', sourceId);
+    
+  if (error) {
+    console.error('Failed to update source status:', error);
+  }
+}
+
+async function clearExistingDocuments(supabaseClient: any, sourceId: string) {
+  const { error } = await supabaseClient
+    .from('documents')
+    .delete()
+    .eq('source_id', sourceId);
+    
+  if (error) {
+    console.error('Failed to clear existing documents:', error);
+  }
+}
+
+async function insertDocumentChunks(supabaseClient: any, chunks: string[], embeddings: number[][], sourceId: string, sourceName: string) {
+  const documentInserts = chunks.map((chunk, i) => ({
+    source_id: sourceId,
+    content: chunk,
+    embedding: embeddings[i],
+    metadata: {
+      source_name: sourceName,
+      chunk_index: i,
+      total_chunks: chunks.length,
+      processed_at: new Date().toISOString()
+    }
+  }));
+  
+  const { error } = await supabaseClient
+    .from('documents')
+    .insert(documentInserts);
+    
+  if (error) {
+    console.error('Failed to insert document chunks:', error);
+    throw new Error(`Failed to insert documents: ${error.message}`);
+  }
+}
+
+// ===== MODULE: AUTHENTICATION =====
+async function validateUserAndAdmin(supabaseClient: any, token: string) {
+  const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token)
+  
+  if (userError || !user) {
+    throw new Error('Unauthorized: Invalid or expired token');
+  }
+  
+  // Check if user is admin
+  const { data: profile, error: profileError } = await supabaseClient
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+    
+  if (profileError || profile?.role !== 'admin') {
+    throw new Error('Forbidden: Admin access required');
+  }
+  
+  return user.id;
+}
+
+// ===== MODULE: MAIN INGESTION LOGIC =====
+async function processSourceContent(supabaseClient: any, source: any): Promise<string> {
+  let content = '';
+  
+  // Process the document based on its type
+  if (source.type === 'url') {
+    console.log("Processing URL source:", source.url)
+    content = await fetchUrlContent(source.url!);
+  } else if (source.type === 'file') {
+    // For file uploads, assume content is pre-processed or stored; 
+    // in a full implementation, fetch from Supabase Storage
+    console.log("Processing file source - content extraction placeholder");
+    // Placeholder: content would be extracted here (e.g., from storage)
+    content = 'Sample file content for demonstration purposes.'; // Replace with actual extraction
+  } else {
+    throw new Error(`Unsupported source type: ${source.type}`);
+  }
+  
+  if (!content || content.trim().length === 0) {
+    throw new Error('No content extracted from the source');
+  }
+  
+  console.log("Extracted content length:", content.length);
+  
+  return content;
+}
+
+async function generateAndStoreEmbeddings(supabaseClient: any, content: string, sourceId: string, sourceName: string) {
+  // Get embedding configuration
+  const { data: embeddingConfig, error: embeddingConfigError } = await supabaseClient
+    .from('model_configurations')
+    .select('*')
+    .eq('type', 'embedding')
+    .single();
+    
+  const embeddingProvider = embeddingConfig?.provider || 'openai';
+  const embeddingModel = embeddingConfig?.model || 'text-embedding-3-large';
+  
+  // Get API key for embedding
+  const { data: apiKeyData, error: apiKeyError } = await supabaseClient
+    .from('api_keys')
+    .select('api_key')
+    .eq('provider', embeddingProvider)
+    .single();
+    
+  if (apiKeyError || !apiKeyData) {
+    throw new Error(`${embeddingProvider} API key not configured for embeddings`);
+  }
+  
+  const decryptedApiKey = decryptApiKey(apiKeyData.api_key, ENCRYPTION_KEY);
+  
+  // Chunk the content semantically
+  const chunks = splitIntoSemanticChunks(content, MAX_CHUNK_SIZE, OVERLAP_SIZE);
+  console.log(`Split into ${chunks.length} semantic chunks`);
+  
+  // Clear existing documents for this source (idempotent)
+  await clearExistingDocuments(supabaseClient, sourceId);
+  
+  // Generate embeddings in batches and insert
+  const embeddings = await generateBatchEmbeddings(supabaseClient, chunks, embeddingProvider, embeddingModel, decryptedApiKey, sourceId);
+  
+  // Insert chunks with embeddings (batch insert for efficiency)
+  await insertDocumentChunks(supabaseClient, chunks, embeddings, sourceId, sourceName);
+}
+
+// ===== MODULE: MAIN HANDLER =====
 serve(async (req) => {
   console.log("Ingest function called with method:", req.method)
   console.log("Request headers:", [...req.headers.entries()])
@@ -328,30 +476,7 @@ serve(async (req) => {
     
     // Validate the user
     const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token)
-    
-    if (userError || !user) {
-      console.log("Invalid or expired token")
-      return new Response('Unauthorized', { 
-        status: 401, 
-        headers: corsHeaders 
-      })
-    }
-    
-    // Check if user is admin
-    const { data: profile, error: profileError } = await supabaseClient
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-    
-    if (profileError || profile?.role !== 'admin') {
-      console.log("User is not authorized to perform this action")
-      return new Response('Forbidden', { 
-        status: 403, 
-        headers: corsHeaders 
-      })
-    }
+    await validateUserAndAdmin(supabaseClient, token);
     
     const body = await req.json()
     console.log("Request body:", body)
@@ -384,108 +509,21 @@ serve(async (req) => {
     
     // Update status to processing
     console.log("Updating source status to processing")
-    const { error: updateError } = await supabaseClient
-      .from('knowledge_sources')
-      .update({ status: 'processing', updated_at: new Date().toISOString() })
-      .eq('id', sourceId)
+    await updateSourceStatus(supabaseClient, sourceId, 'processing');
     
-    if (updateError) {
-      console.error('Failed to update status to processing:', updateError)
-    }
+    // Process source content
+    const content = await processSourceContent(supabaseClient, source);
     
-    let content = '';
-    
-    // Process the document based on its type
-    if (source.type === 'url') {
-      console.log("Processing URL source:", source.url)
-      content = await fetchUrlContent(source.url!);
-    } else if (source.type === 'file') {
-      // For file uploads, assume content is pre-processed or stored; 
-      // in a full implementation, fetch from Supabase Storage
-      console.log("Processing file source - content extraction placeholder");
-      // Placeholder: content would be extracted here (e.g., from storage)
-      content = 'Sample file content for demonstration purposes.'; // Replace with actual extraction
-    } else {
-      throw new Error(`Unsupported source type: ${source.type}`);
-    }
-    
-    if (!content || content.trim().length === 0) {
-      throw new Error('No content extracted from the source');
-    }
-    
-    console.log("Extracted content length:", content.length);
-    
-    // Get embedding configuration
-    const { data: embeddingConfig, error: embeddingConfigError } = await supabaseClient
-      .from('model_configurations')
-      .select('*')
-      .eq('type', 'embedding')
-      .single();
-    
-    const embeddingProvider = embeddingConfig?.provider || 'openai';
-    const embeddingModel = embeddingConfig?.model || 'text-embedding-3-large';
-    
-    // Get API key for embedding
-    const { data: apiKeyData, error: apiKeyError } = await supabaseClient
-      .from('api_keys')
-      .select('api_key')
-      .eq('provider', embeddingProvider)
-      .single();
-    
-    if (apiKeyError || !apiKeyData) {
-      throw new Error(`${embeddingProvider} API key not configured for embeddings`);
-    }
-    
-    const decryptedApiKey = decryptApiKey(apiKeyData.api_key, Deno.env.get('ENCRYPTION_KEY') || 'your-secret-encryption-key-32-chars');
-    
-    // Chunk the content semantically
-    const chunks = splitIntoSemanticChunks(content, 1000, 200); // 1000 chars max, 200 overlap
-    console.log(`Split into ${chunks.length} semantic chunks`);
-    
-    // Clear existing documents for this source (idempotent)
-    await supabaseClient
-      .from('documents')
-      .delete()
-      .eq('source_id', sourceId);
-    
-    // Generate embeddings in batches and insert
-    const embeddings = await generateBatchEmbeddings(supabaseClient, chunks, embeddingProvider, embeddingModel, decryptedApiKey, sourceId);
-    
-    // Insert chunks with embeddings (batch insert for efficiency)
-    const documentInserts = chunks.map((chunk, i) => ({
-      source_id: sourceId,
-      content: chunk,
-      embedding: embeddings[i],
-      metadata: {
-        source_name: source.name,
-        chunk_index: i,
-        total_chunks: chunks.length,
-        processed_at: new Date().toISOString()
-      }
-    }));
-    
-    const { error: insertError } = await supabaseClient
-      .from('documents')
-      .insert(documentInserts);
-    
-    if (insertError) {
-      throw new Error(`Failed to insert documents: ${insertError.message}`);
-    }
+    // Generate embeddings and store
+    await generateAndStoreEmbeddings(supabaseClient, content, sourceId, source.name);
     
     // Update source to completed
-    await supabaseClient
-      .from('knowledge_sources')
-      .update({ 
-        status: 'completed', 
-        updated_at: new Date().toISOString(),
-        metadata: { total_chunks: chunks.length }
-      })
-      .eq('id', sourceId);
+    await updateSourceStatus(supabaseClient, sourceId, 'completed', { total_chunks: splitIntoSemanticChunks(content).length });
     
     const data = {
-      message: `Successfully ingested ${chunks.length} chunks from ${source.name}`,
+      message: `Successfully ingested ${splitIntoSemanticChunks(content).length} chunks from ${source.name}`,
       sourceId: source.id,
-      chunkCount: chunks.length
+      chunkCount: splitIntoSemanticChunks(content).length
     };
     
     console.log("Ingest function completed successfully:", data);
@@ -499,14 +537,7 @@ serve(async (req) => {
     
     // Update status to failed
     try {
-      await supabaseClient
-        .from('knowledge_sources')
-        .update({ 
-          status: 'failed', 
-          updated_at: new Date().toISOString(),
-          metadata: { error: error.message }
-        })
-        .eq('id', body.sourceId);
+      await updateSourceStatus(supabaseClient, body.sourceId, 'failed', { error: error.message });
     } catch (updateError) {
       console.error('Failed to update status to failed:', updateError);
     }
