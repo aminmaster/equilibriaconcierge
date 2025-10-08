@@ -285,8 +285,8 @@ export const useKnowledgeSources = () => {
     console.log("Viewing documents for source:", sourceId, sourceName);
   }, []);
 
-  // Get file icon based on filename
-  const getFileIcon = useCallback((fileName: string) => {
+  // Get file icon based on filename - returns JSX.Element
+  const getFileIcon = useCallback((fileName: string): JSX.Element => {
     const extension = fileName.split('.').pop()?.toLowerCase() || '';
     
     switch (extension) {
