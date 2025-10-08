@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -52,6 +52,10 @@ interface KnowledgeSource {
   url: string;
   status: string;
   created_at: string;
+  metadata?: {
+    progress?: number;
+    error?: string;
+  };
 }
 
 interface Document {
@@ -90,6 +94,57 @@ export function KnowledgeBaseTab() {
   const [showDocumentViewer, setShowDocumentViewer] = useState(false);
   const [selectedSource, setSelectedSource] = useState<{id: string, name: string} | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [realtimeChannel, setRealtimeChannel] = useState<any>(null);
+
+  // Realtime subscription for progress updates
+  useEffect(() => {
+    const channel = supabase.channel('knowledge_ingestion');
+    
+    const progressListener = (payload: any) => {
+      console.log('Received progress update:', payload);
+      
+      setSources(prevSources => 
+        prevSources.map(source => {
+          if (source.id === payload.sourceId) {
+            return {
+              ...source,
+              status: payload.status,
+              metadata: {
+                ...source.metadata,
+                progress: payload.progress
+              }
+            };
+          }
+          return source;
+        })
+      );
+      
+      // Show toast for significant updates
+      if (payload.progress === 100 && payload.status === 'completed') {
+        toast({
+          title: "Ingestion Complete",
+          description: payload.message,
+        });
+      } else if (payload.status === 'failed') {
+        toast({
+          title: "Ingestion Failed",
+          description: payload.message,
+          variant: "destructive",
+        });
+      }
+    };
+    
+    channel
+      .on('broadcast', { event: 'progress_update' }, progressListener)
+      .subscribe((status) => {
+        console.log('Realtime subscription status:', status);
+        setRealtimeChannel(channel);
+      });
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [toast]);
 
   // Load knowledge sources and documents
   const loadKnowledgeData = async () => {
@@ -135,9 +190,9 @@ export function KnowledgeBaseTab() {
   };
 
   // Load data on component mount
-  useState(() => {
+  useEffect(() => {
     loadKnowledgeData();
-  });
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -494,53 +549,75 @@ export function KnowledgeBaseTab() {
             </div>
           ) : (
             <div className="space-y-4">
-              {sources.map((source) => (
-                <div key={source.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center gap-4">
-                    {getFileIcon(source.name)}
-                    <div>
-                      <h3 className="font-medium">{source.name}</h3>
-                      <div className="flex items-center gap-4 mt-1">
-                        <p className="text-sm text-muted-foreground">
-                          {new Date(source.created_at).toLocaleDateString()}
-                        </p>
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                          source.status === 'completed' 
-                            ? 'bg-green-100 text-green-800' 
-                            : source.status === 'processing' 
-                              ? 'bg-yellow-100 text-yellow-800' 
-                              : source.status === 'failed' 
-                                ? 'bg-red-100 text-red-800' 
-                                : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {source.status.charAt(0).toUpperCase() + source.status.slice(1)}
-                        </span>
-                        <span className="inline-flex items-center text-sm text-muted-foreground">
-                          <Database className="h-3 w-3 mr-1" />
-                          {getDocumentCount(source.id)} chunks
-                        </span>
+              {sources.map((source) => {
+                const progress = source.metadata?.progress || 0;
+                const isProcessing = source.status === 'processing';
+                
+                return (
+                  <div key={source.id} className="flex items-start justify-between p-4 border rounded-lg">
+                    <div className="flex items-start gap-4">
+                      {getFileIcon(source.name)}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium">{source.name}</h3>
+                        <div className="flex items-center gap-4 mt-1">
+                          <p className="text-sm text-muted-foreground">
+                            {new Date(source.created_at).toLocaleDateString()}
+                          </p>
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            source.status === 'completed' 
+                              ? 'bg-green-100 text-green-800' 
+                              : source.status === 'processing' 
+                                ? 'bg-yellow-100 text-yellow-800' 
+                                : source.status === 'failed' 
+                                  ? 'bg-red-100 text-red-800' 
+                                  : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {source.status.charAt(0).toUpperCase() + source.status.slice(1)}
+                          </span>
+                          <span className="inline-flex items-center text-sm text-muted-foreground">
+                            <Database className="h-3 w-3 mr-1" />
+                            {getDocumentCount(source.id)} chunks
+                          </span>
+                        </div>
+                        
+                        {isProcessing && progress > 0 && (
+                          <div className="mt-2 space-y-1">
+                            <div className="flex justify-between text-xs">
+                              <span>Progress</span>
+                              <span>{Math.round(progress)}%</span>
+                            </div>
+                            <Progress value={progress} className="w-full" />
+                          </div>
+                        )}
+                        
+                        {source.metadata?.error && (
+                          <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                            Error: {source.metadata.error}
+                          </div>
+                        )}
                       </div>
                     </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => viewDocuments(source.id, source.name)}
+                        disabled={source.status !== 'completed'}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                        onClick={() => deleteSource(source.id)}
+                        disabled={isProcessing}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => viewDocuments(source.id, source.name)}
-                      disabled={source.status !== 'completed'}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="destructive" 
-                      size="sm"
-                      onClick={() => deleteSource(source.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

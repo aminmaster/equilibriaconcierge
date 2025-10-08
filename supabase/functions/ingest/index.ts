@@ -349,6 +349,31 @@ async function insertDocumentChunks(supabaseClient: any, chunks: string[], embed
   }
 }
 
+// ===== MODULE: REALTIME BROADCASTING =====
+async function broadcastProgress(supabaseClient: any, sourceId: string, progress: number, status: string, message: string) {
+  try {
+    // Broadcast to the 'knowledge_ingestion' channel with sourceId for targeted updates
+    await supabaseClient
+      .channel('knowledge_ingestion')
+      .send({
+        type: 'broadcast',
+        event: 'progress_update',
+        payload: {
+          sourceId,
+          progress,
+          status,
+          message,
+          timestamp: new Date().toISOString()
+        }
+      });
+    
+    console.log(`Broadcasted progress update: ${progress}% for source ${sourceId}`);
+  } catch (broadcastError) {
+    console.error('Failed to broadcast progress:', broadcastError);
+    // Don't throw; continue processing
+  }
+}
+
 // ===== MODULE: AUTHENTICATION =====
 async function validateUserAndAdmin(supabaseClient: any, token: string) {
   const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token)
@@ -511,14 +536,23 @@ serve(async (req) => {
     console.log("Updating source status to processing")
     await updateSourceStatus(supabaseClient, sourceId, 'processing');
     
+    // Broadcast initial progress
+    await broadcastProgress(supabaseClient, sourceId, 0, 'processing', 'Starting ingestion process...');
+    
     // Process source content
     const content = await processSourceContent(supabaseClient, source);
+    
+    // Broadcast content extraction complete
+    await broadcastProgress(supabaseClient, sourceId, 10, 'processing', 'Content extracted successfully.');
     
     // Generate embeddings and store
     await generateAndStoreEmbeddings(supabaseClient, content, sourceId, source.name);
     
     // Update source to completed
     await updateSourceStatus(supabaseClient, sourceId, 'completed', { total_chunks: splitIntoSemanticChunks(content).length });
+    
+    // Final broadcast
+    await broadcastProgress(supabaseClient, sourceId, 100, 'completed', `Successfully ingested ${splitIntoSemanticChunks(content).length} chunks from ${source.name}`);
     
     const data = {
       message: `Successfully ingested ${splitIntoSemanticChunks(content).length} chunks from ${source.name}`,
@@ -538,6 +572,7 @@ serve(async (req) => {
     // Update status to failed
     try {
       await updateSourceStatus(supabaseClient, body.sourceId, 'failed', { error: error.message });
+      await broadcastProgress(supabaseClient, body.sourceId, 0, 'failed', `Ingestion failed: ${error.message}`);
     } catch (updateError) {
       console.error('Failed to update status to failed:', updateError);
     }
