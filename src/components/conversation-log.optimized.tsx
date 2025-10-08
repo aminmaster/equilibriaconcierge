@@ -111,7 +111,7 @@ const MessageItem = memo(({
     >
       {message.role === "assistant" && (
         <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-          <span className="text-[0.6rem] font-bold text-primary-foreground">AI</span>
+          <span className="text-[0.6rem] font-bold text-primary-framework">AI</span>
         </div>
       )}
       
@@ -207,7 +207,6 @@ export function ConversationLog() {
   } = useConversations();
   const [feedback, setFeedback] = useState<Record<string, string>>({});
   const [streamingMessage, setStreamingMessage] = useState<{id: string, content: string} | null>(null);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const virtuosoRef = useRef<any>(null);
 
   const handleFeedback = useCallback((messageId: string, type: string) => {
